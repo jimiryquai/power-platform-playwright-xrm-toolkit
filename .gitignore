@@ -1,0 +1,20 @@
+# Environment variables and secrets — never commit
+.env
+.env.*
+!.env.example
+*.pfx
+*.pem
+*.crt
+*.key
+*.p12
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# OS files
+.DS_Store
