@@ -27,3 +27,19 @@ export {
 
 // Page Waiters
 export * from './page-waiters';
+
+// Cross-cutting infrastructure — error wrapping, readiness waiting, dialog handling
+export { RethrownError } from './rethrown-error';
+
+export { XrmHelper, XRM_HELPER_DEFAULTS, XrmHelperSettings } from './xrm-helper';
+
+export {
+  DialogHandler,
+  DialogKind,
+  DIALOG_SELECTORS,
+  DuplicateRecordsFoundError,
+  DialogResponse,
+  DialogPolicy,
+  DialogSelectors,
+  DialogHandlerSettings,
+} from './dialog-handler';

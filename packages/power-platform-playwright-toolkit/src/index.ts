@@ -21,6 +21,20 @@ export {
 } from './core/power-platform-navigator';
 export * from './core/page-waiters';
 
+// Export cross-cutting infrastructure (error wrapping, readiness waiting, dialogs)
+export { RethrownError } from './core/rethrown-error';
+export { XrmHelper, XRM_HELPER_DEFAULTS, XrmHelperSettings } from './core/xrm-helper';
+export {
+  DialogHandler,
+  DialogKind,
+  DIALOG_SELECTORS,
+  DuplicateRecordsFoundError,
+  DialogResponse,
+  DialogPolicy,
+  DialogSelectors,
+  DialogHandlerSettings,
+} from './core/dialog-handler';
+
 // Export Page Object Models
 export { PowerAppsPage } from './pages/power-apps.page';
 export { CanvasAppPage } from './pages/canvas-app.page';

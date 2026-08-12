@@ -16,6 +16,8 @@
   },
   "scripts": {
     "build": "tsc",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -42,7 +44,8 @@
     "ts-node": "^10.9.2",
     "tsc-alias": "^1.8.16",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "peerDependencies": {
     "@playwright/test": "^1.57.0"

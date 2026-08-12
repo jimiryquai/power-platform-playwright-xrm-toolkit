@@ -1,0 +1,8 @@
+{
+  // Lint-only project. tsconfig.json deliberately excludes *.test.ts so tests are
+  // not emitted into dist/, but eslint's type-aware rules still need them in a
+  // project or it fails to parse them at all.
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*", "vitest.config.mts"],
+  "exclude": ["node_modules", "dist"]
+}

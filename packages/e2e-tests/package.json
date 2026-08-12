@@ -16,6 +16,7 @@
     "auth:headful": "tsx scripts/authenticate.ts --headful",
     "auth:mda": "tsx scripts/authenticate.ts --mda",
     "auth:mda:headful": "tsx scripts/authenticate.ts --headful --mda",
+    "provision:duplicate-rule": "tsx scripts/provision-duplicate-rule.ts",
     "record:apis": "tsx scripts/record-apis.ts",
     "record:apis:headful": "tsx scripts/record-apis.ts --headful",
     "test": "playwright test",
