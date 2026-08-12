@@ -1,0 +1,129 @@
+# Shared setup steps for all E2E test jobs.
+# Handles: Node install, npm workspace install, Playwright browser install,
+# and authentication state creation.
+#
+# MDA cert auth: AzureKeyVault@2 downloads the test user PFX from
+# ltimauroracertificates using UCIPlaywrightServiceConnection (the same
+# service principal already used for AzureCLI@2 test runs — it already
+# holds Key Vault Secrets User on that vault).
+# The cert is decoded to disk so the auth script uses it directly instead
+# of re-fetching from Key Vault at runtime.
+# All other config is defined as pipeline variables and auto-maps as env vars.
+
+parameters:
+  - name: nodeVersion
+    type: string
+    default: '20.x'
+  - name: authenticateMDA
+    type: boolean
+    default: false
+
+steps:
+  - checkout: self
+
+  - task: NodeTool@0
+    displayName: 'Use Node.js ${{ parameters.nodeVersion }}'
+    inputs:
+      versionSpec: ${{ parameters.nodeVersion }}
+
+  - script: npm ci
+    displayName: Install npm workspaces
+
+  - script: npm run build:toolkit
+    displayName: Build toolkit only
+
+  # Install Playwright Chromium — used by all test jobs
+  - script: npx playwright install chromium --with-deps
+    workingDirectory: $(Build.SourcesDirectory)/packages/e2e-tests
+    failOnStderr: false
+    timeoutInMinutes: 20
+    displayName: Install Playwright browsers (chromium)
+
+  # ── Cert fetch — runs for every job (canvas and MDA both need the same cert) ──
+
+  # 1. Fetch test user cert secret(s) from Key Vault via shared service connection
+  - task: AzureKeyVault@2
+    displayName: 'Fetch test user cert from Key Vault'
+    inputs:
+      azureSubscription: UCIPlaywrightServiceConnection
+      KeyVaultName: ltimauroracertificates
+      SecretsFilter: 'auroracapintuser04,auroracapintuser06,auroracapintuser11'
+      RunAsPreJob: false
+
+  # 2. Map email → secret name, decode base64 PFX to disk, expose certFilePath
+  - pwsh: |
+      $userName = "$(msAuthEmail)"
+      $secretName = ""
+
+      if      ($userName -like "*aurorauser04@capintegration01*") { $secretName = "auroracapintuser04" }
+      elseif  ($userName -like "*aurorauser06@capintegration01*") { $secretName = "auroracapintuser06" }
+      elseif  ($userName -like "*aurorauser11@capintegration01*") { $secretName = "auroracapintuser11" }
+      else {
+        Write-Error "No cert mapping found for user: $userName"
+        exit 1
+      }
+
+      $base64 = (Get-Item "env:$secretName").Value
+      if ([string]::IsNullOrWhiteSpace($base64)) {
+        Write-Error "Secret '$secretName' was not set by AzureKeyVault task"
+        exit 1
+      }
+
+      $certDir  = "$(Agent.TempDirectory)\certs"
+      $certPath = "$certDir\testuser.pfx"
+      New-Item -ItemType Directory -Force -Path $certDir | Out-Null
+      [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($base64))
+
+      Write-Host "Certificate written to: $certPath"
+      Write-Host "##vso[task.setvariable variable=certFilePath]$certPath"
+    displayName: 'Decode test user cert to disk'
+    failOnStderr: true
+    env:
+      auroracapintuser04: $(auroracapintuser04)
+      auroracapintuser06: $(auroracapintuser06)
+      auroracapintuser11: $(auroracapintuser11)
+
+  # 3. Create canvas / maker-portal auth state (used by gen-ux and canvas jobs).
+  #    Overrides MS_AUTH_CREDENTIAL_PROVIDER to use the locally decoded cert file
+  #    instead of re-fetching from Key Vault at runtime.
+  - script: npm run auth:headful --workspace @power-platform-playwright/e2e-tests
+    displayName: Authenticate — canvas / maker portal
+    env:
+      CI: true
+      MS_AUTH_EMAIL: $(msAuthEmail)
+      MS_AUTH_CREDENTIAL_PROVIDER: local-file
+      MS_AUTH_CREDENTIAL_TYPE: certificate
+      MS_AUTH_LOCAL_FILE_PATH: $(certFilePath)
+      AUTH_ENDPOINT: https://login.microsoftonline.com
+
+  # ── MDA auth — only runs when authenticateMDA: true (NorthwindMDA job) ───────
+  # Cert is already on disk from step 2; just run headful auth and verify state.
+  - ${{ if eq(parameters.authenticateMDA, true) }}:
+      # 4. Run MDA headful auth with local cert (npm workspace script)
+      - script: npm run auth:mda:headful --workspace @power-platform-playwright/e2e-tests
+        displayName: Authenticate — Model-Driven App (headful + cert)
+        condition: false # Temporarily disabled together with Playwright test execution.
+        env:
+          CI: true
+          MS_AUTH_EMAIL: $(msAuthEmail)
+          MS_AUTH_CREDENTIAL_TYPE: certificate
+          MS_AUTH_CREDENTIAL_PROVIDER: local-file
+          MS_AUTH_LOCAL_FILE_PATH: $(certFilePath)
+          AUTH_ENDPOINT: https://login.microsoftonline.com
+
+      # 5. Verify the MDA storage state file was created successfully
+      #    Path: packages/e2e-tests/.playwright-ms-auth/state-mda-{email}.json
+      - pwsh: |
+          $email     = "$(msAuthEmail)"
+          $stateDir  = Join-Path "packages/e2e-tests" ".playwright-ms-auth"
+          $statePath = Join-Path $stateDir "state-mda-$email.json"
+
+          if (-not (Test-Path $statePath)) {
+            Write-Error "MDA auth state not found: $statePath"
+            Write-Error "Authentication may have failed — check the Authenticate step output."
+            exit 1
+          }
+          Write-Host "MDA auth state verified: $statePath"
+        displayName: Verify MDA auth state
+        condition: false # MDA auth is disabled, so no state file is expected.
+        failOnStderr: true

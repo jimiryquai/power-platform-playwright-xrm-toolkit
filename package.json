@@ -1,0 +1,27 @@
+{
+  "name": "power-platform-playwright-xrm-toolkit-workspace",
+  "version": "0.0.4",
+  "private": true,
+  "packageManager": "npm@10.9.4",
+  "workspaces": [
+    "packages/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jimiryquai/power-platform-playwright-xrm-toolkit.git"
+  },
+  "scripts": {
+    "build": "npm run build:toolkit && npm run build:e2e",
+    "build:toolkit": "npm run build --workspace power-platform-playwright-toolkit",
+    "build:e2e": "npm run build --workspace @power-platform-playwright/e2e-tests",
+    "lint": "npm run lint --workspaces --if-present",
+    "prettier": "prettier --write \"**/*.{ts,tsx,js,jsx,json,yml,yaml}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,yml,yaml}\"",
+    "rebuild": "npm run clean --workspaces --if-present && npm run build",
+    "update": "npm update --workspaces"
+  },
+  "devDependencies": {
+    "prettier": "^3.7.4"
+  }
+}

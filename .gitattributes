@@ -1,0 +1,11 @@
+# Normalise line endings to LF in the working tree on every platform.
+# Prettier is configured with `endOfLine: "lf"`, so a CRLF checkout on Windows
+# would fail `npm run format:check` on a freshly cloned repo.
+* text=auto eol=lf
+
+# Don't allow people to merge changes to this generated file, because the result
+# may be invalid. Run "npm install" again instead.
+package-lock.json            merge=binary
+
+# Power BI reports are binary
+*.pbix -diff

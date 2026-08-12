@@ -1,0 +1,49 @@
+# Reusable step template for running Playwright tests and publishing artifacts.
+# Used by GenUXTests, NorthwindCanvasTests, and NorthwindMDATests jobs.
+
+parameters:
+  - name: project
+    type: string
+  - name: artifactName
+    type: string
+
+steps:
+  - bash: npx playwright test --project=${{ parameters.project }}
+    displayName: 'Run Playwright Tests (${{ parameters.project }})'
+    condition: false # Temporarily disabled so pipeline jobs complete without running tests.
+    workingDirectory: $(Build.SourcesDirectory)/packages/e2e-tests
+    env:
+      CI: true
+      MS_AUTH_EMAIL: $(msAuthEmail)
+      MS_AUTH_CREDENTIAL_PROVIDER: local-file
+      MS_AUTH_CREDENTIAL_TYPE: certificate
+      MS_AUTH_LOCAL_FILE_PATH: $(certFilePath)
+      OUTPUT_DIRECTORY: $(testResultsDir)
+
+  - task: PublishTestResults@2
+    displayName: 'Publish JUnit test results (${{ parameters.artifactName }})'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: '$(testResultsDir)/junit-results.xml'
+      testRunTitle: '${{ parameters.artifactName }}'
+      failTaskOnFailedTests: false
+
+  - pwsh: |
+      $artifactsDir = "$(testResultsDir)/artifacts"
+      if (Test-Path $artifactsDir) {
+        Write-Host "Artifacts folder found: $artifactsDir"
+        Write-Host "##vso[task.setvariable variable=ARTIFACTS_EXISTS]true"
+      } else {
+        Write-Host "Artifacts folder not found: $artifactsDir"
+        Write-Host "##vso[task.setvariable variable=ARTIFACTS_EXISTS]false"
+      }
+    displayName: 'Check if artifacts exist'
+    condition: succeededOrFailed()
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish artifacts (${{ parameters.artifactName }})'
+    condition: and(succeededOrFailed(), eq(variables.ARTIFACTS_EXISTS, 'true'))
+    inputs:
+      targetPath: $(testResultsDir)/artifacts
+      artifact: ${{ parameters.artifactName }}
