@@ -412,6 +412,12 @@ After installation you will have:
 - **Northwind Orders (Canvas App)** — tested by `canvas-app` project
 - **Northwind Orders (Model-Driven App)** — tested by `model-driven-app` project
 
+> The stock solution ships **no custom page**. `tests/northwind/custom-page/custom-page-crud.test.ts`
+> needs an `AccountsCustomPage` sidebar item you must add via the MDA app designer — which is
+> why the `custom-page` project is commented out in `playwright.config.ts`.
+> See [docs/environment-notes.md](docs/environment-notes.md) for this and other
+> environment-specific gotchas (regional Dataverse hosts, auth browser channel, timeouts).
+
 To find the correct IDs after installation:
 
 1. **Canvas App ID**: Maker Portal → Apps → select "Northwind Orders" → Details → App ID
