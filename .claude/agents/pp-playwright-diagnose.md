@@ -28,7 +28,7 @@ If the user gives only the project name, ask for the spec name or grep the lates
 
 ## Step 1 — Triage from the Error Text Alone
 
-Match the error against the anti-pattern table below **before** opening any other file. Eight of the most common Power Platform Playwright failures have a one-line fix.
+Match the error against the anti-pattern table below **before** opening any other file. Most common Power Platform Playwright failures — DOM/shell-layer and Xrm-layer alike — have a one-line fix in [CLAUDE.md's merged anti-pattern reference](../../CLAUDE.md#ai-agent-reference-anti-patterns).
 
 | Error fragment                                                             | Anti-pattern                                         | One-line fix                                                            |
 | -------------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------- |
@@ -43,6 +43,10 @@ Match the error against the anti-pattern table below **before** opening any othe
 | Save succeeds but Xrm `getValue()` returns null                            | Updated DOM, not Xrm model                           | CLAUDE.md §9 — `attribute.setValue()` (NOT `setEntityAttribute`)        |
 | Canvas Edit field text concatenates                                        | `Control+A` intercepted by PCF layer                 | CLAUDE.md §10 — `el.evaluate(e => e.select())`                          |
 | `Cannot find module 'power-platform-playwright-toolkit'`                   | Toolkit not built                                    | CLAUDE.md §11 — `npm run build:toolkit`                                 |
+| `Attribute '<name>' not found on form` from `.attribute.getValue()`/`.setValue()` | Wrong logical name, or field genuinely not bound (inactive record — see §2/§2a first) | CLAUDE.md §9 — Xrm-layer classes throw this deliberately per ADR 0001; verify the schema name in the form editor, then rule out §2a before treating it as a real bug |
+| `DuplicateRecordsFoundError` thrown from `.entity.save()`                  | D365's duplicate-detection dialog fired mid-save     | Xrm-layer, not a selector issue — either the test data collides (fix the factory/unique naming), or pass `save(true)` to proceed intentionally |
+| `Subgrid control '<name>' not found on form`                               | Wrong subgrid schema name, or subgrid not on this form/tab | CLAUDE.md §9 — check the subgrid's actual name in the form editor; confirm the tab/section containing it is expanded/visible (§ Tab/Section) |
+| Xrm.WebApi 400/`Invalid property` from `.webApi.createRecord()`/`updateRecord()` | Wrong logical/attribute name, or a required field omitted | Xrm-layer — read the error body (it names the bad field), not a toolkit bug |
 
 If a fragment matches:
 
@@ -104,6 +108,11 @@ If the failure is in toolkit code (anything under `packages/power-platform-playw
 1. Was the toolkit rebuilt after the last change? (CLAUDE.md §11)
 2. Is the failing component listed in CLAUDE.md as known-fragile? (form.context.ts, grid.component.ts, gen-ux.page.ts, custom-page-crud)
 3. Are there `findWithFallback` / `findWithFallbackRole` opportunities? (CLAUDE.md §7) — propose a multi-selector fallback if the failure is selector drift across versions.
+4. If the failure is in an Xrm-layer class (`components/model-driven/xrm/*` — `Attribute`, `Entity`,
+   `WebApi`, `Control`, `SubGrid`, `Navigation`, `Tab`, `Section`, `Form`), it's wrapped in
+   `RethrownError` — the stack trace preserves **both** the browser-side `page.evaluate()` failure
+   and the test call site. Read both halves; the browser-side half usually names the actual bad
+   selector/attribute name.
 
 ---
 

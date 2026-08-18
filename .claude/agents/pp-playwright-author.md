@@ -43,10 +43,37 @@ Read [packages/power-platform-playwright-toolkit/src/](../../packages/power-plat
 | App type          | Page Object                                                | Where                                 |
 | ----------------- | ---------------------------------------------------------- | ------------------------------------- |
 | Canvas            | `CanvasAppPage`                                            | `appProvider.getCanvasAppPage()`      |
-| Model-Driven      | `ModelDrivenAppPage` (`.form`, `.grid`, `.commanding`)     | `appProvider.getModelDrivenAppPage()` |
+| Model-Driven      | `ModelDrivenAppPage` — see the accessor table below        | `appProvider.getModelDrivenAppPage()` |
 | Custom Page       | `ModelDrivenAppPage` + custom POM under `pages/northwind/` | reuse + extend                        |
 | Gen UX (designer) | `GenUxPage`                                                | `appProvider.getGenUxPage()`          |
 | Maker Portal nav  | `PowerAppsPage` + `PowerPlatformNavigator`                 | toolkit core                          |
+
+`ModelDrivenAppPage`'s accessors split into the **Xrm client-API layer** (pure `Xrm.*` calls, no
+DOM) and the **DOM/shell layer** (drives the rendered UCI). Per ADR 0001, MS's old monolithic
+`FormComponent` — `.form.getEntityAttribute()` / `.setEntityAttribute()` / `.saveForm()` — is
+**retired**. Never generate code against it. `.form` now names the granular `Form` class
+(form-selector only, not field access).
+
+| Accessor             | Class                 | Layer | Covers                                                                       |
+| --------------------- | ---------------------- | ----- | ------------------------------------------------------------------------------ |
+| `.attribute`          | `Attribute`            | Xrm   | Field get/set value, required level, dirty state — see CLAUDE.md §9            |
+| `.entity`             | `Entity`                | Xrm   | Record save, refresh, id/entity reference, form type                          |
+| `.webApi`             | `WebApi`                | Xrm   | Dataverse CRUD (create/retrieve/update/delete), auto-paging `retrieveAllRecords` |
+| `.control`            | `Control`               | Xrm   | Control visibility, disabled state, label, options                            |
+| `.subGrid`            | `SubGrid`               | Xrm   | Subgrid record count, record IDs, open nth record, visibility                 |
+| `.navigation`         | `Navigation`            | Xrm   | Open create/update/quick-create forms, `navigateTo`, open app by ID           |
+| `.tab` / `.section`   | `Tab` / `Section`       | Xrm   | Tab/section expand-collapse and visibility                                    |
+| `.form`               | `Form`                  | Xrm   | Form selector: switch/list forms on a multi-form entity                       |
+| `.grid`               | `GridComponent`         | DOM   | ag-Grid: rows, cell values, sort, filter, checkbox selection                  |
+| `.sidebar`            | `Sidebar`               | DOM   | Site-map navigation: sub-areas, recent/pinned, area switcher                  |
+| `.commanding`         | `CommandingComponent`   | DOM   | Command bar/ribbon: click, overflow menu, named shortcuts (save, deactivate)  |
+
+**Apply [CLAUDE.md §9's read-via-Xrm/write-via-DOM boundary](../../CLAUDE.md#9-read-via-xrm-write-via-dom--the-modelui-boundary)
+when deciding which side to call**: read a value for an assertion through `.attribute`/`.entity`
+(Xrm); simulate what a user actually does (typing into a field, clicking Save, clicking a
+sidebar link) through the DOM layer. The Xrm setters (`.attribute.setValue()`, `.entity.save()`,
+`.navigation.openUpdateForm()`) are test-**setup** shortcuts, not a substitute for the DOM
+interaction a generated test is supposed to be exercising.
 
 Always launch via `AppProvider`:
 
@@ -96,9 +123,32 @@ Before you write a single line of test code, walk this list. If you skip it, you
 - [ ] **§6 Studio data source pane** — scope to `[class*="ms-Callout-main"]`.
 - [ ] **§7 Versioned UI** — wrap selectors in `findWithFallback` / `findWithFallbackRole`.
 - [ ] **§8 Gen UX `addNewPage`** — three-step flow with `findWithFallback` on step 1.
-- [ ] **§9 MDA field updates** — use raw `attribute.setValue()` (NOT `setEntityAttribute` — it fires onChange).
+- [ ] **§9 Read via Xrm, write via DOM** — assertions read through `.attribute`/`.entity`; the test's Act phase writes/saves/navigates through the DOM layer (or a DOM-driven convenience method), not through Xrm setters. For the specific field-commit case: use raw `attribute.setValue()` (NOT `setEntityAttribute` — it fires onChange).
 - [ ] **§10 Canvas Edit fields** — `el.evaluate(e => e.select())` then `pressSequentially`.
 - [ ] **§11 Toolkit changes** — if you touch toolkit src, remind the user to `npm run build:toolkit`.
+
+### Enforce the conventions, don't just follow them
+
+This agent is the fork's single entry point for scaffolding — there is no separate "framework
+agent" artifact; this checklist and the refusals below are that job. If a request would violate
+a documented convention, **refuse and explain why**, citing the specific rule, rather than
+generating the violating code and leaving a comment about it:
+
+- A request to read a field's value via `page.locator(...).inputValue()` instead of
+  `.attribute.getValue()` — refuse, point at CLAUDE.md §9.
+- A request to simulate a user typing/clicking via `.attribute.setValue()` /
+  `.entity.save()` / `.navigation.*` in the test's Act phase — refuse, point at CLAUDE.md §9;
+  offer the Xrm call as test-setup instead if that's what's actually needed.
+- A request to hand-roll a login flow — refuse, point at "When NOT to use AI generation" in
+  CLAUDE.md; `playwright-ms-auth` already owns this.
+- A request to reference `FormComponent`, `.form.getEntityAttribute()`, `.form.setEntityAttribute()`,
+  or `.form.saveForm()` — refuse; these are retired (ADR 0001). Use `.attribute`/`.entity` instead.
+- A request to inline a selector for something the toolkit already exposes (grid rows, sidebar
+  items, command bar buttons) — refuse, point at the matching component API.
+
+When you *do* generate code, be ready to explain **why** a pattern was chosen if asked (e.g. "why
+DOM for this write?" → "to exercise the real input control and trigger its real onChange/validation
+behaviour, per CLAUDE.md §9").
 
 ---
 

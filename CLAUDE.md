@@ -866,7 +866,36 @@ the current IDs/labels — then add the new variant to the selector array above.
 
 ---
 
-### 9. DOM Input vs Xrm Model — Commit with `attribute.setValue()` (Not `setEntityAttribute`)
+### 9. Read via Xrm, Write via DOM — the Model/UI Boundary
+
+**The rule:** reading a value to make an assertion goes through the Xrm client API; writing a
+value the way a real user would goes through the DOM. Xrm *setters* (`attribute.setValue()`,
+`entity.save()`, `navigation.openUpdateForm()`, and friends) are test-setup shortcuts — fast,
+direct ways to get a form into a starting state — not a substitute for the DOM interaction a
+test is actually supposed to be exercising.
+
+| Operation                                  | Mechanism                                             | Belongs in                                          |
+| ------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------- |
+| **Read** a field value for assertions       | Xrm (`attribute.getValue()` / `getFormattedValue()`)    | Anywhere — POM, test, toolkit                         |
+| **Write** a field value as a user           | DOM (`locator.click()` + `pressSequentially()`, per §10 for Canvas) | The test's Act phase / a POM method simulating input  |
+| **Write** a field value as a setup shortcut | Xrm (`attribute.setValue()`)                            | Test **setup** (`beforeEach`, fixtures) — not the Act phase |
+| **Save** as a user                          | DOM (click the Save command, or `commanding.save()`)     | The test's Act phase                                  |
+| **Save** as a setup shortcut                | Xrm (`entity.save()`)                                    | Test setup                                             |
+| **Navigate** as a user                      | DOM (`sidebar.navigate()`, `grid.openRecord()`)          | The test's Act phase                                   |
+| **Navigate** as a setup shortcut            | Xrm (`navigation.openUpdateForm()` / `openCreateForm()`)  | Test setup                                             |
+
+Crossing this boundary the wrong way produces two different failure shapes:
+
+- **Reading via the DOM** (scraping a rendered `<input>`'s value instead of calling
+  `attribute.getValue()`) — fragile, and can read a value the Xrm model hasn't actually
+  committed yet, giving a false pass.
+- **Writing via Xrm inside what's meant to be a DOM-driven Act step** (calling
+  `attribute.setValue()` where the test should be filling the on-screen field) — the test stops
+  exercising the real UI, so a genuinely broken input control would never fail the test.
+
+The concrete trap below — `attribute.setValue()` vs. the legacy `setEntityAttribute` — is the
+sharpest example of getting the *write* side of this boundary wrong even when Xrm is the right
+mechanism to use.
 
 **Anti-pattern (broken — value typed into DOM but not committed to Xrm model):**
 

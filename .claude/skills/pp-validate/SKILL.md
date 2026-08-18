@@ -17,7 +17,7 @@ When the user types `/pp-validate`, invoke the **pp-playwright-validate** agent 
 | `/pp-validate --skip-auth`                           | Reuse existing `.playwright-ms-auth/state-*.json` files (24h window)    |
 | `/pp-validate model-driven-app --headed --skip-auth` | All flags compose                                                       |
 
-Valid project names: `canvas-app`, `model-driven-app`, `custom-page`, `studio-authoring`, `gen-ux-runtime`, `default`, or `all` (default).
+Valid project names: `canvas-app`, `model-driven-app`, `studio-authoring`, `gen-ux-runtime`, `default`, or `all` (default). `custom-page` is commented out in `playwright.config.ts` — not a runnable project.
 
 ## Behaviour
 

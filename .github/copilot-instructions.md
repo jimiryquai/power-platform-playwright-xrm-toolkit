@@ -63,10 +63,13 @@ MS_AUTH_STORAGE_STATE_EXPIRATION — hours (default: 24)
 | ------------------ | ----------------------------------------------------------- | ------------------------ |
 | `canvas-app`       | `tests/northwind/canvas/`                                   | `state-<email>.json`     |
 | `model-driven-app` | `tests/northwind/mda/`                                      | `state-mda-<email>.json` |
-| `custom-page`      | `tests/northwind/custom-page/custom-page-crud.test.ts`      | `state-mda-<email>.json` |
 | `studio-authoring` | `**/custom-page.test.ts` + `**/gen-ux/basic-form/*.test.ts` | `state-<email>.json`     |
 | `gen-ux-runtime`   | `**/gen-ux/runtime/*.test.ts`                               | `state-<email>.json`     |
-| `default`          | `tests/` (all)                                              | `state-<email>.json`     |
+| `default`          | `tests/` (all, excluding `**/custom-page/**`)                | `state-<email>.json`     |
+
+> `custom-page` is commented out in `playwright.config.ts` — the stock Northwind solution ships
+> no custom page. `custom-page-crud.test.ts` currently runs under no active project;
+> `studio-authoring` covers `custom-page.test.ts` instead (creates the custom page in Studio).
 
 ---
 
@@ -84,13 +87,27 @@ await canvasFrame
 
 ### Model-Driven App tests — use toolkit components
 
+`ModelDrivenAppPage` splits into the **Xrm client-API layer** (`.attribute`, `.entity`, `.webApi`,
+`.control`, `.subGrid`, `.navigation`, `.tab`, `.section`, `.form`) and the **DOM/shell layer**
+(`.grid`, `.sidebar`, `.commanding`). MS's old monolithic `FormComponent` — `.form.getEntityAttribute()`
+/ `.setEntityAttribute()` / `.saveForm()` — is **retired** (ADR 0001); `.form` now names the
+granular `Form` class (form-selector only). Follow CLAUDE.md §9's read-via-Xrm/write-via-DOM
+boundary: read for assertions via Xrm, write/save the way a real user would via the DOM.
+
 ```typescript
 const mda = appProvider.getModelDrivenAppPage();
-await mda.grid.navigateToGridView();
-await mda.grid.openRow(0);
-const value = await mda.form.getEntityAttribute('name');
-await mda.form.setEntityAttribute('description', 'Updated');
-await mda.form.saveForm();
+await mda.grid.navigateToGridView('nwind_order');
+await mda.grid.openRecord({ rowNumber: 0 });
+
+// Read via Xrm — for assertions
+const value = await mda.attribute.getValue('nwind_ordernumber');
+
+// Write via DOM — simulating a real user, then commit via Xrm without firing onChange (§9)
+// ...fill the on-screen control, then commit:
+await mda.attribute.setValue('nwind_description', 'Updated');
+
+// Save via DOM as a user (commanding.save()), or via Xrm as a setup shortcut (mda.entity.save())
+await mda.commanding.save();
 ```
 
 ### Auth validation
@@ -120,7 +137,6 @@ npm run auth:headful                        # authenticate Canvas / Maker Portal
 npm run auth:mda:headful                    # authenticate MDA / CRM domain
 npx playwright test --project=canvas-app
 npx playwright test --project=model-driven-app
-npx playwright test --project=custom-page
 npx playwright test --project=studio-authoring
 npx playwright test --project=gen-ux-runtime
 npx playwright test --ui                    # interactive UI mode

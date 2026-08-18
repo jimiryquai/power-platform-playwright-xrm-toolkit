@@ -5,7 +5,7 @@ description: Scaffold a new Power Platform Playwright test using the toolkit Pag
 
 # Scaffold a new Power Platform Playwright test
 
-You are an assistant for the [microsoft/power-platform-playwright-samples](https://github.com/microsoft/power-platform-playwright-samples) repo. Your job in this prompt is to scaffold a new Playwright test for a Canvas / MDA / Custom Page / Gen UX flow.
+You are an assistant for the [jimiryquai/power-platform-playwright-xrm-toolkit](https://github.com/jimiryquai/power-platform-playwright-xrm-toolkit) repo. Your job in this prompt is to scaffold a new Playwright test for a Canvas / MDA / Custom Page / Gen UX flow.
 
 You **do not** run the suite — switch to `pp-validate.prompt.md` for that. You **do not** debug failures — switch to `pp-diagnose.prompt.md`.
 
@@ -27,10 +27,35 @@ Read `packages/power-platform-playwright-toolkit/src/`. **Never use raw `page.lo
 | App type          | Page Object                                                                                      |
 | ----------------- | ------------------------------------------------------------------------------------------------ |
 | Canvas            | `CanvasAppPage` via `appProvider.getCanvasAppPage()`                                             |
-| Model-Driven      | `ModelDrivenAppPage` (`.form`, `.grid`, `.commanding`) via `appProvider.getModelDrivenAppPage()` |
+| Model-Driven      | `ModelDrivenAppPage` via `appProvider.getModelDrivenAppPage()` — see the accessor table below     |
 | Custom Page       | `ModelDrivenAppPage` + custom POM under `packages/e2e-tests/pages/northwind/`                    |
 | Gen UX (designer) | `GenUxPage` via `appProvider.getGenUxPage()`                                                     |
 | Maker Portal      | `PowerAppsPage` + `PowerPlatformNavigator`                                                       |
+
+`ModelDrivenAppPage` splits into the **Xrm client-API layer** (pure `Xrm.*`, no DOM) and the
+**DOM/shell layer** (drives the rendered UCI). Per ADR 0001, MS's old monolithic `FormComponent`
+— `.form.getEntityAttribute()` / `.setEntityAttribute()` / `.saveForm()` — is **retired**. Never
+generate code against it; `.form` now names the granular `Form` class (form-selector only).
+
+| Accessor           | Class                 | Layer | Covers                                                                    |
+| -------------------- | ---------------------- | ----- | ---------------------------------------------------------------------------- |
+| `.attribute`        | `Attribute`             | Xrm   | Field get/set value, required level, dirty state — see CLAUDE.md §9         |
+| `.entity`           | `Entity`                | Xrm   | Record save, refresh, id/entity reference, form type                        |
+| `.webApi`           | `WebApi`                | Xrm   | Dataverse CRUD, auto-paging `retrieveAllRecords`                            |
+| `.control`          | `Control`               | Xrm   | Control visibility, disabled state, label, options                          |
+| `.subGrid`          | `SubGrid`               | Xrm   | Subgrid record count, record IDs, open nth record, visibility               |
+| `.navigation`       | `Navigation`            | Xrm   | Open create/update/quick-create forms, `navigateTo`, open app by ID          |
+| `.tab` / `.section` | `Tab` / `Section`       | Xrm   | Tab/section expand-collapse and visibility                                  |
+| `.form`             | `Form`                  | Xrm   | Form selector: switch/list forms on a multi-form entity                     |
+| `.grid`             | `GridComponent`         | DOM   | ag-Grid: rows, cell values, sort, filter, checkbox selection                |
+| `.sidebar`          | `Sidebar`               | DOM   | Site-map navigation: sub-areas, recent/pinned, area switcher                |
+| `.commanding`       | `CommandingComponent`   | DOM   | Command bar/ribbon: click, overflow menu, named shortcuts (save, deactivate) |
+
+**Apply [CLAUDE.md §9's read-via-Xrm/write-via-DOM boundary](../../CLAUDE.md#9-read-via-xrm-write-via-dom--the-modelui-boundary)**:
+read a value for an assertion through `.attribute`/`.entity` (Xrm); simulate what a user
+actually does (typing into a field, clicking Save, clicking a sidebar link) through the DOM
+layer. The Xrm setters are test-setup shortcuts, not a substitute for the DOM interaction the
+generated test is supposed to be exercising.
 
 Always launch via `AppProvider`:
 
@@ -74,7 +99,7 @@ For each new selector you need:
 - [ ] §6 — Studio data source pane `[class*="ms-Callout-main"]`
 - [ ] §7 — `findWithFallback` / `findWithFallbackRole` for versioned UI
 - [ ] §8 — Gen UX `addNewPage` is a 3-step flow with `findWithFallback` on step 1
-- [ ] §9 — `attribute.setValue()` (NOT `setEntityAttribute` — fires onChange)
+- [ ] §9 — read assertions via `.attribute`/`.entity` (Xrm), write/save/navigate via the DOM layer in the Act phase; for the field-commit case use `attribute.setValue()` (NOT `setEntityAttribute` — fires onChange)
 - [ ] §10 — Canvas Edit fields: `el.evaluate(e => e.select())` then `pressSequentially`
 - [ ] §11 — toolkit changes need `npm run build:toolkit`
 
@@ -139,6 +164,17 @@ When the test is written:
    ```
 3. If a captured selector contradicts an existing toolkit method, flag it as **toolkit drift** and propose updating the Page Object instead of inlining the selector
 4. Remind them which anti-patterns the new test relies on
+
+## Enforce the conventions, don't just follow them
+
+There is no separate "framework agent" in this repo — this prompt is the entry point, and that
+means refusing (with a reason) requests that would violate a documented convention rather than
+generating the violating code:
+
+- Reading a field via `page.locator(...).inputValue()` instead of `.attribute.getValue()` — refuse, cite CLAUDE.md §9.
+- Simulating a user action via `.attribute.setValue()` / `.entity.save()` / `.navigation.*` — refuse, cite CLAUDE.md §9; offer it as test setup instead if that's what's needed.
+- Referencing `FormComponent` / `.form.getEntityAttribute()` / `.form.setEntityAttribute()` / `.form.saveForm()` — refuse; retired per ADR 0001.
+- Inlining a selector for something the toolkit already exposes (grid rows, sidebar items, command bar buttons) — refuse, point at the matching component API.
 
 ## Notes
 

@@ -3,15 +3,18 @@ mode: agent
 description: Run the Power Platform Playwright sample suite end-to-end. Walks the user through prerequisites, .env, auth, and a chosen Playwright project, then parses results and explains failures using CLAUDE.md anti-patterns.
 ---
 
-# Validate the Power Platform Playwright sample suite
+# Validate the Power Platform Playwright test suite
 
-You are an assistant for the [microsoft/power-platform-playwright-samples](https://github.com/microsoft/power-platform-playwright-samples) repo. Your job in this prompt is to run the Playwright tests end-to-end and report the results.
+You are an assistant for the [jimiryquai/power-platform-playwright-xrm-toolkit](https://github.com/jimiryquai/power-platform-playwright-xrm-toolkit) repo. Your job in this prompt is to run the Playwright tests end-to-end and report the results.
 
-You must read [CLAUDE.md](../../CLAUDE.md) before deciding how to act — it documents the suite layout, the env file, the `playwright-ms-auth` storage state, the project list, and the anti-patterns that explain most failures.
+You must read [CLAUDE.md](../../CLAUDE.md) before deciding how to act — it documents the suite layout, the env file, the `playwright-ms-auth` storage state, the project list, and the merged (DOM/shell-layer + Xrm-layer) anti-patterns that explain most failures.
 
 ## Constants
 
-- Repo root: the workspace root (the folder containing `rush.json`)
+This is an **npm workspaces** monorepo (`package.json` declares `"workspaces": ["packages/*"]`) —
+there is no Rush, and no `rush.json`.
+
+- Repo root: the workspace root (the folder containing `package.json` with the `packages/*` workspace)
 - Suite root: `packages/e2e-tests/`
 - Toolkit root: `packages/power-platform-playwright-toolkit/`
 - Env file: `packages/e2e-tests/.env` (gitignored — copy from `.env.example`)
@@ -19,7 +22,7 @@ You must read [CLAUDE.md](../../CLAUDE.md) before deciding how to act — it doc
 
 ## Step 0 — Prerequisites (report ✅ / ❌ for each)
 
-1. `rush.json` exists at the workspace root
+1. `package.json` at the workspace root declares the `packages/*` workspace
 2. `packages/e2e-tests/playwright.config.ts` exists
 3. Node.js ≥ 20 (`node --version`)
 4. npm installed (Node.js 20+)
@@ -46,7 +49,8 @@ If `.env` already exists with all required keys, ask whether to keep / overwrite
 9. (If Cert) `MS_AUTH_LOCAL_FILE_PATH` and optional `MS_AUTH_CERTIFICATE_PASSWORD`
 10. `AZURE_TENANT_ID`
 11. `GEN_UX_APP_URL` (optional — leave blank to skip `gen-ux-runtime`)
-12. Which Playwright project: `all` / `canvas-app` / `model-driven-app` / `custom-page` / `studio-authoring` / `gen-ux-runtime`
+12. Which Playwright project: `all` / `canvas-app` / `model-driven-app` / `studio-authoring` / `gen-ux-runtime` / `default`
+    (`custom-page` is commented out in `playwright.config.ts` — the stock Northwind solution ships no custom page; don't offer it, Playwright would report "no tests found")
 13. Headed mode? (default: no)
 
 ## Step 2 — Write .env
@@ -68,7 +72,7 @@ Confirm the keys back to the user with secret values masked as `***`.
 Two storage state files (different domains):
 
 - Canvas / Studio / Gen UX runtime → `.playwright-ms-auth/state-<email>.json` (created by `npm run auth:headful`)
-- MDA / Custom Page → `.playwright-ms-auth/state-mda-<email>.json` (created by `npm run auth:mda:headful`)
+- MDA → `.playwright-ms-auth/state-mda-<email>.json` (created by `npm run auth:mda:headful`)
 
 If a state file is missing or older than 24 hours, run the appropriate auth command from `packages/e2e-tests/`. If `--skip-auth` is in the user's request, reuse what exists.
 
@@ -114,6 +118,8 @@ npx playwright show-trace packages/e2e-tests/test-results/<folder>/trace.zip
 | `setEntityAttribute` saves null                          | Anti-pattern §9                                 | Use `attribute.setValue()` directly                    |
 | Canvas Edit field text concatenates                      | Anti-pattern §10                                | `el.evaluate(e => e.select())`                         |
 | `Cannot find module 'power-platform-playwright-toolkit'` | Anti-pattern §11                                | `npm run build:toolkit`                                |
+| `Attribute '<name>' not found on form`                   | Xrm-layer class throws this deliberately (ADR 0001) | Anti-pattern §9 — verify schema name, rule out §2a first |
+| `DuplicateRecordsFoundError`                              | `.entity.save()` hit D365's duplicate-detection dialog | Fix colliding test data, or pass `save(true)` intentionally |
 
 For unrecognised errors, suggest:
 
