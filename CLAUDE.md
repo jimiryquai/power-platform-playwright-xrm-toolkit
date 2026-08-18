@@ -564,6 +564,35 @@ A toolkit helper for tier 2 against Power Automate flow responses specifically
 a someday-maybe in [issue #41](https://github.com/jimiryquai/power-platform-playwright-xrm-toolkit/issues/41)
 — not built yet.
 
+### A layer below this toolkit: unit-testing web resources
+
+Everything above is about this toolkit's own layer — driving a real browser against
+a real, provisioned Power Platform app. There's a cheaper, faster layer *underneath*
+that: the actual JavaScript in a solution's web resources (form `onLoad`/`onChange`
+handlers, ribbon command enable rules, subgrid scripts) can be unit-tested in
+isolation, in Node, with no browser and no live tenant, using a fake implementation
+of the Xrm client API such as [`xrm-mock`](https://www.npmjs.com/package/xrm-mock).
+
+This isn't part of this toolkit's own code — it's a separate, complementary tier in
+the overall testing strategy for anyone building on the apps this toolkit tests:
+
+- **`xrm-mock` unit tests** — milliseconds, no tenant, exercises the web resource's
+  actual logic against a fake with real internal state (attribute values genuinely
+  persist, `fireOnChange()` genuinely invokes handlers registered via `addOnChange`,
+  `Xrm.WebApi` operates against an in-memory record store) rather than canned
+  responses. Catches logic bugs in a ribbon rule or onChange handler before the
+  code is ever deployed to an environment.
+- **This toolkit's Playwright tests** — seconds to minutes, live tenant, the only
+  layer that can catch what a fake can't: real DOM/UI behaviour, real Dataverse
+  persistence and business rules, real Power Automate flows, real auth.
+
+They're not substitutes for each other. `xrm-mock` can't tell you whether a ribbon
+button is actually visible in the UCI shell or whether a flow's real trigger fires;
+this toolkit's e2e tests are too slow and too tenant-dependent to be how you
+exhaustively cover every branch of a form script's logic. Reach for `xrm-mock` to
+pin down a web resource's own logic fast, and this toolkit to confirm the whole app
+still works end to end.
+
 ---
 
 ## AI Agent Reference: Anti-Patterns
