@@ -255,17 +255,27 @@ export const ModelDrivenAppLocators = {
         FilterPanel: (ctx: Ctx) => ctx.locator('div[role="dialog"], div.ms-Panel'),
 
         // ── Checkbox selection ───────────────────────────────────────────────
+        // ARIA role first — the modern grid control renders this as role="checkbox"
+        // on a non-<input> element (confirmed live against a Northwind grid), so an
+        // `input[type="checkbox"]`-only selector matches nothing on that version.
+        // CSS fallbacks cover the classic ag-Grid-era markup.
         CheckboxSelectAll: (ctx: Ctx) =>
-          ctx.locator(
-            [
-              'div.ag-header-cell[aria-colindex="1"] input[type="checkbox"]',
-              'div.ag-header-select-all input[type="checkbox"]',
-              'input[type="checkbox"][aria-label*="Toggle selection of all rows"]',
-              'input[type="checkbox"][aria-label*="all rows"]',
-            ].join(', ')
-          ),
+          ctx
+            .getByRole('checkbox', { name: /toggle selection of all rows/i })
+            .or(
+              ctx.locator(
+                [
+                  'div.ag-header-cell[aria-colindex="1"] input[type="checkbox"]',
+                  'div.ag-header-select-all input[type="checkbox"]',
+                  'input[type="checkbox"][aria-label*="Toggle selection of all rows"]',
+                  'input[type="checkbox"][aria-label*="all rows"]',
+                ].join(', ')
+              )
+            ),
         SelectedRow: (ctx: Ctx) =>
-          ctx.locator('div.ag-row.ag-row-selected, div[role="row"][aria-selected="true"]'),
+          ctx
+            .getByRole('row', { selected: true })
+            .or(ctx.locator('div.ag-row.ag-row-selected, div[role="row"][aria-selected="true"]')),
 
         // ── View selector ────────────────────────────────────────────────────
         ViewSelectorButton: (ctx: Ctx) =>
