@@ -384,7 +384,11 @@ export class GridComponent {
   async selectAllRecords(): Promise<void> {
     try {
       await this.waitForGridLoad();
-      await this.toggleSelectAllCheckbox();
+      const checkbox = await this.findVisibleCandidate(
+        this.gridLocators.CheckboxSelectAllCandidates(this.page)
+      );
+      if (!checkbox) throw new Error('Select-all checkbox not found or not visible');
+      await checkbox.click({ force: true });
       await this.gridLocators.SelectedRow(this.page).first().waitFor({ state: 'attached' });
     } catch (e) {
       throw new RethrownError('Error selecting all records', e as Error);
@@ -399,7 +403,11 @@ export class GridComponent {
       if (!(await this.areAllRecordsSelected())) return;
 
       await this.waitForGridLoad();
-      await this.toggleSelectAllCheckbox();
+      const checkbox = await this.findVisibleCandidate(
+        this.gridLocators.CheckboxSelectAllCandidates(this.page)
+      );
+      if (!checkbox) throw new Error('Select-all checkbox not found or not visible');
+      await checkbox.click({ force: true });
       // Reuses the SelectedRow locator (also used by selectAllRecords) rather than
       // duplicating its selector string in a page.waitForFunction.
       await expect(this.gridLocators.SelectedRow(this.page)).toHaveCount(0, { timeout: 10000 });
@@ -409,22 +417,28 @@ export class GridComponent {
   }
 
   /**
-   * Toggles the header "select all" checkbox via the keyboard rather than a
-   * mouse click.
+   * Returns the first candidate locator that resolves to a genuinely visible
+   * element, or `undefined` if none do.
    *
-   * Confirmed live (#26/#43): on at least one grid control version the
-   * semantic `role="checkbox"` element is not the actual pointer-cursor click
-   * target — a decorative sibling is — so `click({ force: true })` resolves
-   * the right element but doesn't toggle it. The grid's own row hint text
-   * ("Press SPACE to select this row") confirms Space is the supported
-   * interaction; focus + Space works for both that custom-widget case and a
-   * plain native `<input type="checkbox">`, without depending on which
-   * element visually owns the click.
+   * Ported from CCA's `clickCheckbox` helper, which looped selector candidates
+   * and only acted on the first one that passed `element.isVisible()` — not
+   * just the first one that matched *something* in the DOM. A single merged
+   * locator can resolve to an element that exists but isn't the real
+   * interactive target (confirmed live in #26/#43: the ARIA-tree "Toggle
+   * selection of all rows" checkbox resolves fine, but clicking or keying it
+   * does nothing — a decorative sibling owns the real interaction). Trying
+   * candidates in order and gating on visibility is how the original avoided
+   * committing to the wrong one.
    */
-  private async toggleSelectAllCheckbox(): Promise<void> {
-    const checkbox = this.gridLocators.CheckboxSelectAll(this.page).first();
-    await checkbox.focus();
-    await checkbox.press('Space');
+  private async findVisibleCandidate(candidates: Locator[]): Promise<Locator | undefined> {
+    for (const candidate of candidates) {
+      const element = candidate.first();
+      if ((await element.count()) === 0) continue;
+      if (await element.isVisible().catch(() => false)) {
+        return element;
+      }
+    }
+    return undefined;
   }
 
   /**
@@ -433,8 +447,10 @@ export class GridComponent {
   async areAllRecordsSelected(): Promise<boolean> {
     try {
       await this.waitForGridLoad();
-      const checkbox = this.gridLocators.CheckboxSelectAll(this.page).first();
-      if ((await checkbox.count()) === 0) return false;
+      const checkbox = await this.findVisibleCandidate(
+        this.gridLocators.CheckboxSelectAllCandidates(this.page)
+      );
+      if (!checkbox) return false;
 
       // A native <input>'s own `.checked` is authoritative when there is one, but
       // Fluent UI v8's `ms-Checkbox` reflects checked state as an `is-checked`
@@ -457,6 +473,10 @@ export class GridComponent {
   /**
    * Select a single record via its row checkbox.
    *
+   * Falls back to clicking the row itself when the checkbox isn't visible —
+   * the same defensive check `selectRow` already uses (and which is proven to
+   * work live), rather than assuming the checkbox is always the right target.
+   *
    * @param recordNumber - Row index (0-based)
    */
   async selectNthRecord(recordNumber: number): Promise<void> {
@@ -465,7 +485,12 @@ export class GridComponent {
       await row.waitFor({ state: 'visible', timeout: 30000 });
 
       const checkbox = this.gridLocators.CheckboxCell(row).first();
-      await checkbox.click({ force: true });
+      const hasCheckbox = await checkbox.isVisible().catch(() => false);
+      if (hasCheckbox) {
+        await checkbox.click({ force: true });
+      } else {
+        await row.click();
+      }
 
       // ag-Grid updates aria-selected/the selected class asynchronously after the
       // click — poll until it does, rather than checking once and discarding the

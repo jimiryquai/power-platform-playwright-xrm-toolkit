@@ -255,26 +255,29 @@ export const ModelDrivenAppLocators = {
         FilterPanel: (ctx: Ctx) => ctx.locator('div[role="dialog"], div.ms-Panel'),
 
         // ── Checkbox selection ───────────────────────────────────────────────
-        // ARIA role first, matched against every accessible name seen live across
-        // grid control versions: "Select all" (Fluent UI v8 `ms-Checkbox`,
-        // confirmed via real DOM) and "Toggle selection of all rows" (the
-        // ARIA-tree-only modern grid). CSS fallbacks cover ag-Grid-era markup and
-        // the `ms-Checkbox` wrapper CCA's original selector targeted.
-        CheckboxSelectAll: (ctx: Ctx) =>
-          ctx
-            .getByRole('checkbox', { name: /^select all$|toggle selection of all rows/i })
-            .or(
-              ctx.locator(
-                [
-                  'div.ag-header-cell[aria-colindex="1"] input[type="checkbox"]',
-                  'div.ag-header-select-all input[type="checkbox"]',
-                  'input[type="checkbox"][aria-label*="Toggle selection of all rows"]',
-                  'input[type="checkbox"][aria-label*="all rows"]',
-                  'input[type="checkbox"][aria-label="Select all"]',
-                  'input[type="checkbox"][title="Select all"]',
-                ].join(', ')
-              )
-            ),
+        // Distinct candidates to try IN ORDER, not one merged `.or()` locator —
+        // matches CCA's original `clickCheckbox` helper, which looped candidates
+        // and only acted on the first one that was genuinely `.isVisible()`.
+        // A merged locator can resolve to an element that exists in the DOM but
+        // isn't the real interactive target (confirmed live in #26/#43: the
+        // ARIA-tree checkbox for "Toggle selection of all rows" resolves fine
+        // but clicking/keying it does nothing — a decorative sibling owns the
+        // real interaction). Order: ARIA role, then ag-Grid-era CSS, then the
+        // Fluent UI v8 `ms-Checkbox` markup (confirmed via real DOM).
+        CheckboxSelectAllCandidates: (ctx: Ctx): Locator[] => [
+          ctx.getByRole('checkbox', { name: /^select all$|toggle selection of all rows/i }),
+          ctx.locator('div.ag-header-cell[aria-colindex="1"] input[type="checkbox"]'),
+          ctx.locator('div.ag-header-select-all input[type="checkbox"]'),
+          ctx.locator('input[type="checkbox"][aria-label*="Toggle selection of all rows"]'),
+          ctx.locator('input[type="checkbox"][aria-label*="all rows"]'),
+          ctx.locator('input[type="checkbox"][aria-label="Select all"]'),
+          ctx.locator('input[type="checkbox"][title="Select all"]'),
+          // Wrapper-div fallbacks — click the container when the semantic
+          // checkbox itself isn't the real click target.
+          ctx.locator('div.ag-header-select-all'),
+          ctx.locator('div.ag-checkbox.ag-header-select-all'),
+          ctx.locator('div.ag-header-cell[aria-colindex="1"] div.ms-Checkbox'),
+        ],
         SelectedRow: (ctx: Ctx) =>
           ctx
             .getByRole('row', { selected: true })
