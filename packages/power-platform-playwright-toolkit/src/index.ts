@@ -82,3 +82,6 @@ export * from './components/gen-ux';
 // Export Fixture Factory (provider pattern)
 export { createPowerAppFixture } from './fixtures/app-fixture';
 export type { FixtureDefinition, PageObjectBuilder } from './fixtures/app-fixture';
+
+// Export Test-Data Factory (generic, entity-agnostic)
+export * from './test-data';

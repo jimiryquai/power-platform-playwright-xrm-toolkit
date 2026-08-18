@@ -519,6 +519,31 @@ exported for now — `form-context.test.ts` depends on capabilities (enumerating
 running arbitrary Xrm code) the granular classes don't cover yet — but prefer the classes above
 for new code.
 
+### Test-Data Factories (`test-data/*`)
+
+Ported and generalized from the CCA framework's per-entity factory pattern (`AccountFactory`,
+`ContactFactory`) — one factory builds a valid, uniquely-named record payload for **any** entity,
+rather than requiring a dedicated subclass per table. Pair with `.webApi.createRecord()`.
+
+| Export             | Description                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `RecordFactory`     | `.create(options)` builds one record payload with a collision-safe unique value in `options.nameField`. `.createBulk(count, options)` builds `count` of them, numbered and still collision-safe. |
+| `uniqueRecordName`  | `<prefix> <timestamp>-<random>` — the collision-safe naming `RecordFactory` uses internally; safe across parallel workers hitting the same millisecond. |
+| `bindLookup`        | Builds an `@odata.bind` relationship payload (`{ '<nav>@odata.bind': '/<entitySet>(<id>)' }`) for a factory's `data` option. |
+
+```typescript
+const order = RecordFactory.create({
+  nameField: 'nwind_ordernumber',
+  namePrefix: 'Scenario Order',
+  data: { nwind_orderamount: 500 },
+});
+const { id } = await modelDrivenApp.webApi.createRecord('nwind_orders', order);
+```
+
+See `packages/e2e-tests/tests/data/northwind-scenarios.ts` for a named, multi-entity scenario
+(order + customer + employee) built this way, and
+`packages/e2e-tests/tests/northwind/mda/factory-data.test.ts` for it exercised end to end.
+
 ### Locators
 
 | Export                   | Description                                                                                                                              |
