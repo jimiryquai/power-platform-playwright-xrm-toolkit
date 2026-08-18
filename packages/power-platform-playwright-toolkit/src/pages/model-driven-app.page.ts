@@ -23,6 +23,7 @@ import { ModelDrivenAppLocators } from '../locators/model-driven-app.locators';
 import { findLocator } from '../utils/locator-helpers';
 import { GridComponent } from '../components/model-driven/grid.component';
 import { CommandingComponent } from '../components/model-driven/commanding.component';
+import { Sidebar } from '../components/model-driven/sidebar.component';
 import {
   Attribute,
   Entity,
@@ -51,6 +52,9 @@ export class ModelDrivenAppPage {
 
   // CommandingComponent (lazy-initialized)
   private _commanding?: CommandingComponent;
+
+  // Sidebar (lazy-initialized)
+  private _sidebar?: Sidebar;
 
   // Xrm client-API layer (lazy-initialized) — shared XrmHelper/DialogHandler
   // so every accessor observes the same readiness/dialog state.
@@ -196,6 +200,23 @@ export class ModelDrivenAppPage {
       this._commanding = new CommandingComponent(this.page);
     }
     return this._commanding;
+  }
+
+  /**
+   * Get Sidebar for site-map navigation (sub-areas, Recent/Pinned menus, area switcher).
+   * Lazily initialized on first access.
+   *
+   * @example
+   * ```typescript
+   * await modelDrivenApp.sidebar.navigate('Accounts');
+   * const area = await modelDrivenApp.sidebar.getCurrentArea();
+   * ```
+   */
+  get sidebar(): Sidebar {
+    if (!this._sidebar) {
+      this._sidebar = new Sidebar(this.page, this.dialogHandler);
+    }
+    return this._sidebar;
   }
 
   private get xrmHelper(): XrmHelper {

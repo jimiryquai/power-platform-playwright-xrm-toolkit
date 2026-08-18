@@ -171,6 +171,41 @@ export const ModelDrivenAppLocators = {
           .first(),
       RecentItems: (ctx: Ctx) => ctx.getByRole('button', { name: 'Recent' }),
       PinnedItems: (ctx: Ctx) => ctx.getByRole('button', { name: 'Pinned' }),
+
+      // ── Sidebar (Sidebar component) ──────────────────────────────────────
+      // FRAGILE: role=treeitem is ARIA-correct, but data-text/data-id/aria-label
+      // are internal site-map attributes with no documented public contract.
+      TreeItemByAriaLabel: (ctx: Ctx, label: string) =>
+        ctx.locator(`li[role="treeitem"][aria-label="${label}"]`),
+      TreeItemByText: (ctx: Ctx, text: string) =>
+        ctx.locator(`li[role="treeitem"][data-text="${text}"]`),
+      ActiveTreeItem: (ctx: Ctx) =>
+        ctx.locator('li[role="treeitem"][aria-selected="true"][aria-current="page"][data-text]'),
+      // Scoped under a specific tree item (Recent/Pinned) to expand/collapse it —
+      // distinct from ExpandButton above, which expands/collapses the whole nav pane.
+      TreeItemExpandButton: (ctx: Ctx) => ctx.locator('[data-id="sitemap-area-entry-subaction-btn"]'),
+
+      RecentGroup: (ctx: Ctx) => ctx.locator('ul[role="group"][aria-label="Recent"]'),
+      RecentItem: (ctx: Ctx, name: string) =>
+        ctx.locator(`ul[role="group"][aria-label="Recent"] li[data-text="${name}"]`),
+      RecentItemList: (ctx: Ctx) => ctx.locator('ul[role="group"][aria-label="Recent"] li[data-text]'),
+      PinButton: (ctx: Ctx) =>
+        ctx.locator('button[aria-label="Add to Pinned"][data-id="sitemap-area-entry-subaction-btn"]'),
+
+      PinnedGroup: (ctx: Ctx) => ctx.locator('ul[role="group"][aria-label="Pinned"]'),
+      PinnedItem: (ctx: Ctx, name: string) =>
+        ctx.locator(`ul[role="group"][aria-label="Pinned"] li[data-text="${name}"]`),
+      PinnedItemList: (ctx: Ctx) => ctx.locator('ul[role="group"][aria-label="Pinned"] li[data-text]'),
+      UnpinButton: (ctx: Ctx) =>
+        ctx.locator(
+          'button[aria-label="Remove from Pinned"][data-id="sitemap-area-entry-subaction-btn"]'
+        ),
+
+      AreaSwitcher: (ctx: Ctx) => ctx.locator('#areaSwitcherId'),
+      AreaSwitcherFlyout: (ctx: Ctx) => ctx.locator('#__flyoutRootNode'),
+      AreaOption: (ctx: Ctx, name: string) => ctx.locator(`li[role="menuitemradio"]:has-text("${name}")`),
+
+      GroupHeaderList: (ctx: Ctx) => ctx.locator('h3[data-id*="sitemap-sitemapAreaGroup"]'),
     },
 
     Content: {
@@ -192,6 +227,8 @@ export const ModelDrivenAppLocators = {
         // CSS attribute selector is used (not ARIA filter) to match exactly one element
         // reliably, consistent with getCellValue's [role="row"][row-index="N"] approach.
         RowByIndex: (ctx: Ctx, index: number) => ctx.locator(`[role="row"][row-index="${index}"]`),
+        RowByAriaIndex: (ctx: Ctx, ariaIndex: number) =>
+          ctx.locator(`[role="row"][aria-rowindex="${ariaIndex}"]`),
         // Checkbox inside a row — used for row selection
         CheckboxCell: (ctx: Ctx) => ctx.locator('[role="gridcell"] input[type="checkbox"]'),
         // Primary link in a row — used to open a record
@@ -207,6 +244,57 @@ export const ModelDrivenAppLocators = {
           NextPage: (ctx: Ctx) => ctx.getByRole('button', { name: /Next page/i }),
           PreviousPage: (ctx: Ctx) => ctx.getByRole('button', { name: /Previous page/i }),
         },
+
+        // ── Column header context menu (sort / filter / view-selector) ──────
+        // FRAGILE: data-testid/col-id are ag-Grid internals — no ARIA equivalent.
+        HeaderCell: (ctx: Ctx) => ctx.locator('div.ag-header-cell[aria-colindex]'),
+        HeaderCellClickable: (ctx: Ctx) => ctx.locator('[data-testid="columnHeader"]'),
+        ColumnMenu: (ctx: Ctx) => ctx.locator('[data-testid="columnContextMenu"]'),
+        ColumnMenuItem: (ctx: Ctx) =>
+          ctx.locator('button[role="menuitem"], button[role="menuitemradio"]'),
+        FilterPanel: (ctx: Ctx) => ctx.locator('div[role="dialog"], div.ms-Panel'),
+
+        // ── Checkbox selection ───────────────────────────────────────────────
+        CheckboxSelectAll: (ctx: Ctx) =>
+          ctx.locator(
+            [
+              'div.ag-header-cell[aria-colindex="1"] input[type="checkbox"]',
+              'div.ag-header-select-all input[type="checkbox"]',
+              'input[type="checkbox"][aria-label*="Toggle selection of all rows"]',
+              'input[type="checkbox"][aria-label*="all rows"]',
+            ].join(', ')
+          ),
+        SelectedRow: (ctx: Ctx) =>
+          ctx.locator('div.ag-row.ag-row-selected, div[role="row"][aria-selected="true"]'),
+
+        // ── View selector ────────────────────────────────────────────────────
+        ViewSelectorButton: (ctx: Ctx) =>
+          ctx.locator(
+            [
+              'button[aria-label*="Change view"]',
+              'button[aria-label*="Select view"]',
+              'button[data-id*="viewSelector"]',
+              'button[aria-label*="View"]',
+            ].join(', ')
+          ),
+        ViewSelector: (ctx: Ctx) => ctx.locator('div[data-id*="ViewSelector"]'),
+        ViewMenuItem: (ctx: Ctx) => ctx.locator('button[role="menuitemradio"]'),
+        ViewNameLabel: (ctx: Ctx) => ctx.locator('label.viewName, label.ms-Label'),
+        ViewSearchBox: (ctx: Ctx) =>
+          ctx.locator('input[role="searchbox"], input[placeholder*="Search views"]'),
+
+        // ── Grid-level search ────────────────────────────────────────────────
+        SearchBox: (ctx: Ctx) =>
+          ctx.locator(
+            [
+              'input[aria-label*="Search"], input[placeholder*="Search"]',
+              'input[type="search"]',
+              'div.ms-SearchBox input',
+            ].join(', ')
+          ),
+        // FRAGILE: aria-label pattern is not a documented ARIA contract
+        CommandBarButton: (ctx: Ctx, label: string) =>
+          ctx.locator(`button[aria-label="${label}"], button[aria-label*="${label}"]`),
       },
     },
 

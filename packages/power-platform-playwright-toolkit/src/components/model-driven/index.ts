@@ -9,6 +9,7 @@
 export * from './types';
 export * from './grid.component';
 export * from './commanding.component';
+export * from './sidebar.component';
 export * from './xrm';
 
 // Standalone Xrm functions (getFormContext, getEntityAttribute, executeInFormContext, etc.).

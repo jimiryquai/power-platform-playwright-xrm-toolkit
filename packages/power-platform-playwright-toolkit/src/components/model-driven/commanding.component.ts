@@ -98,7 +98,7 @@ export class CommandingComponent {
       await this.openOverflowMenu(context);
 
       // Try to find button in overflow menu
-      button = this.getOverflowButtonLocator(buttonName);
+      button = this.getOverflowMenuItemLocator(buttonName);
       buttonFound = await button.count().then((c) => c > 0);
     }
 
@@ -264,7 +264,7 @@ export class CommandingComponent {
    * ```
    */
   async openOverflowMenu(context = CommandBarContext.Form): Promise<void> {
-    const overflowButton = this.getOverflowButtonLocator(context);
+    const overflowButton = this.getOverflowMenuTriggerLocator(context);
 
     const isExpanded = await overflowButton
       .getAttribute('aria-expanded')
@@ -310,7 +310,7 @@ export class CommandingComponent {
     // Check overflow menu if requested
     if (checkOverflow) {
       await this.openOverflowMenu(context);
-      const overflowButton = this.getOverflowButtonLocator(buttonName);
+      const overflowButton = this.getOverflowMenuItemLocator(buttonName);
       return await overflowButton.isVisible().catch(() => false);
     }
 
@@ -346,7 +346,7 @@ export class CommandingComponent {
     // Check overflow menu if requested
     if (checkOverflow) {
       await this.openOverflowMenu(context);
-      const overflowButton = this.getOverflowButtonLocator(buttonName);
+      const overflowButton = this.getOverflowMenuItemLocator(buttonName);
       isEnabled = await overflowButton.isEnabled().catch(() => false);
     }
 
@@ -418,22 +418,34 @@ export class CommandingComponent {
   }
 
   /**
-   * Get overflow button locator
+   * Get the locator for the overflow menu's own trigger button (the "..." button
+   * that opens the overflow menu).
+   *
+   * Split from {@link getOverflowMenuItemLocator} because both previously lived
+   * in one method that branched on `typeof contextOrButtonName === 'string'` —
+   * but {@link CommandBarContext} is itself a string enum, so that check was
+   * always true and the context branch (this one) was unreachable. Every caller
+   * that opened the overflow menu therefore built a button-name-shaped locator
+   * instead of the real `button[data-id*="OverflowButton"]` trigger, so the menu
+   * never opened and every overflow-dependent helper (`clickDelete`, `share`,
+   * `assign`, `deactivate`, `activate`, `isButtonVisible`, `isButtonEnabled`)
+   * failed to find buttons that were only ever in the overflow menu.
    * @private
    */
-  private getOverflowButtonLocator(contextOrButtonName: CommandBarContext | string): Locator {
-    if (typeof contextOrButtonName === 'string') {
-      // Button name provided - return button in overflow menu
-      const buttonName = contextOrButtonName;
-      return this.page
-        .locator('[role="menu"]')
-        .locator(
-          `button[aria-label="${buttonName}"], button[title="${buttonName}"], button:has-text("${buttonName}")`
-        )
-        .first();
-    } else {
-      // Context provided - return overflow menu button itself
-      return this.page.locator('button[data-id*="OverflowButton"]').first();
-    }
+  private getOverflowMenuTriggerLocator(_context: CommandBarContext): Locator {
+    return this.page.locator('button[data-id*="OverflowButton"]').first();
+  }
+
+  /**
+   * Get the locator for a named button inside an already-open overflow menu.
+   * @private
+   */
+  private getOverflowMenuItemLocator(buttonName: string): Locator {
+    return this.page
+      .locator('[role="menu"]')
+      .locator(
+        `button[aria-label="${buttonName}"], button[title="${buttonName}"], button:has-text("${buttonName}")`
+      )
+      .first();
   }
 }

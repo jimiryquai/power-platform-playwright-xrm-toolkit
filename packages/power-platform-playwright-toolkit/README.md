@@ -339,7 +339,8 @@ import { test, expect } from '../../fixtures/mda.fixtures';
 test.describe('MDA CRUD', () => {
   test('create and delete an order', async ({ mdaApp }) => {
     const orderId = await mdaApp.createOrder({ orderName: 'TEST-001' });
-    await expect(mdaApp.grid.getRowByText('TEST-001')).toBeVisible();
+    const cellValue = await mdaApp.grid.getCellValue(0, 'Order Number');
+    expect(cellValue).toContain('TEST-001');
     await mdaApp.deleteOrder(orderId);
   });
 });
@@ -476,15 +477,22 @@ EMAIL_TO=team@yourdomain.com
 | ---------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CanvasAppRuntimePage` | ▶ Runtime      | Iframe management, gallery scroll, button/input helpers for a published Canvas app.                                                                                                                                                                                                                                   |
 | `CanvasAppPage`        | 🎨 Studio only | Power Apps Studio authoring (create, save, publish, add controls). Do **not** use in runtime tests.                                                                                                                                                                                                                   |
-| `ModelDrivenAppPage`   | 🔧 Mixed       | MDA navigation (`navigateToGridView`, `navigateToFormView`), component accessors (`.grid`, `.commanding`) and Xrm client-API accessors (`.attribute`, `.entity`, `.webApi`, `.control`, `.subGrid`, `.navigation`, `.tab`, `.section`, `.form`). Studio designer methods also present — see region banners in source. |
+| `ModelDrivenAppPage`   | 🔧 Mixed       | MDA navigation (`navigateToGridView`, `navigateToFormView`), component accessors (`.grid`, `.sidebar`, `.commanding`) and Xrm client-API accessors (`.attribute`, `.entity`, `.webApi`, `.control`, `.subGrid`, `.navigation`, `.tab`, `.section`, `.form`). Studio designer methods also present — see region banners in source. |
 
 ### Components
 
-| Export                | Mode           | Description                                                                         |
-| --------------------- | -------------- | ----------------------------------------------------------------------------------- |
-| `GridComponent`       | ▶ Runtime      | ag-Grid: open record, select rows, get cell values, filter by column/keyword, sort. |
-| `CommandingComponent` | ▶ Runtime      | Command bar button interactions.                                                    |
-| `GenUxPage`           | 🎨 Studio only | AI page generation via Power Apps Studio "Describe a page".                         |
+Per [ADR 0002](../../docs/adr/0002-shell-layer-split-reconciliation.md), the DOM/shell layer
+(Grid, Sidebar, Commanding) was reconciled per-component rather than picking one winning side —
+`GridComponent` and `Sidebar` are CCA's implementations (Sidebar ported essentially as-is, Grid
+backfilled with MS's `getCellValue`/`filterByColumn`); `CommandingComponent` is MS's, unchanged in
+shape but with its overflow-menu locator bug fixed.
+
+| Export                | Mode           | Description                                                                                                                                                              |
+| ---------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GridComponent`       | ▶ Runtime      | ag-Grid: open record, select rows/checkbox selection, get cell values, filter by column/keyword, column header menu sort (`sortColumnAtoZ`/`sortColumnZtoA`), view-selector switching (`selectView`/`getCurrentView`). |
+| `Sidebar`              | ▶ Runtime      | Site-map navigation: `navigate` a sub-area, expand/collapse the Recent/Pinned menus, read/switch the current area (`getCurrentArea`/`changeArea`). Accessed via `.sidebar`. |
+| `CommandingComponent` | ▶ Runtime      | Command bar button interactions, including the overflow-menu (`...`) fallback path.                                                                                      |
+| `GenUxPage`           | 🎨 Studio only | AI page generation via Power Apps Studio "Describe a page".                                                                                                               |
 
 ### Xrm Client API (`components/model-driven/xrm/*`)
 
