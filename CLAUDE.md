@@ -622,7 +622,15 @@ Playwright's signature is `page.waitForFunction(fn, arg, options)`. Passing `{ t
 second (arg) position means Playwright uses the page's default timeout instead. This is silent and
 very hard to diagnose. Always pass `undefined` as `arg` when the function needs no argument.
 
-> **File affected:** `packages/power-platform-playwright-toolkit/src/components/model-driven/form.context.ts`
+> **Correct pattern lives in:** `packages/power-platform-playwright-toolkit/src/core/xrm-helper.ts`
+> (`waitForXrmReady`), `src/pages/model-driven-app.page.ts` (`navigateToFormView`'s Xrm-ready
+> wait), and `form.context.ts` (already fixed — this is the file the anti-pattern was originally
+> found in). `form.component.ts`/`FormComponent` (the OOP wrapper, unused by any real caller) was
+> retired in #25, replaced by the granular `components/model-driven/xrm/*` classes per ADR 0001.
+> `form.context.ts` itself stays: its standalone functions (`getFormContext`,
+> `executeInFormContext`, etc.) are still directly imported by
+> `packages/e2e-tests/tests/northwind/mda/form-context.test.ts`, which needs capabilities
+> (enumerating every attribute, running arbitrary Xrm code) the granular classes don't cover yet.
 
 ---
 
@@ -639,15 +647,25 @@ very hard to diagnose. Always pass `undefined` as `arg` when the function needs 
 | `entity.attributes.get(name)`   | **Works** — direct name lookup resolves (if form is editable)                                      |
 | `entity.getEntityName()`        | **Works everywhere** — use as the "form is ready" readiness check                                  |
 
-**Rule:** Use `forEach()` only inside one-shot `page.evaluate()` calls. For attribute binding wait,
-use the `waitForEntityAttributes` helper (which polls via `page.evaluate`, not `waitForFunction`).
+**Rule:** Use `forEach()` only inside one-shot `page.evaluate()` calls, never inside a
+`waitForFunction` polling body.
 
 **Inactive / read-only records:** For deactivated or closed records, `attributes.forEach()` returns
-**0 items by design** — D365 does not bind attributes in read-only form mode. `waitForEntityAttributes`
-waits up to 10 s for attributes, then proceeds silently. `setEntityAttribute`/`getEntityAttribute`
-will throw "Attribute not found" fast — this is the correct signal.
+**0 items by design** — D365 does not bind attributes in read-only form mode.
+`Attribute.getValue`/`setValue` (`components/model-driven/xrm/attribute.ts`) throw a clear
+`Attribute '<name>' not found on form` in that case — this is the correct signal, not a bug to
+work around.
 
-> **File affected:** `packages/power-platform-playwright-toolkit/src/components/model-driven/form.context.ts`
+> **Two parallel implementations exist.** `form.context.ts`'s standalone functions
+> (`getEntityAttribute`/`setEntityAttribute`) still use `waitForEntityAttributes` — a dedicated
+> pre-poll that waits up to 10s for the attributes collection to populate before reading,
+> dismissing a "Sign in to continue" dialog along the way. The newer, granular
+> `components/model-driven/xrm/attribute.ts` (`Attribute.getValue`/`setValue`, ADR 0001) does not:
+> it relies on `XrmHelper.waitForXrmReady()` plus a clear `Attribute '<name>' not found` error
+> instead of a pre-emptive poll. Prefer `Attribute`/`Entity` for new code — `form.context.ts` stays
+> only because `form-context.test.ts` still depends on it directly (see §1 above). Whether the
+> missing pre-poll is a real problem for `Attribute`/`Entity` is tracked in
+> [issue #42](https://github.com/jimiryquai/power-platform-playwright-xrm-toolkit/issues/42).
 
 ### 2a. Finding an Editable Record in Tests (Northwind Orders Pattern)
 

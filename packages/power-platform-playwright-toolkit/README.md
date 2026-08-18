@@ -30,7 +30,7 @@ block-beta
 
   block:CompBlk["Components"]:1
     GC["GridComponent\n▶ ag-Grid interactions"]
-    FC["FormComponent\n▶ form operations"]
+    XRM["xrm/* — Attribute, Entity, WebApi,\nControl, SubGrid, Navigation, Tab,\nSection, Form\n▶ granular Xrm client API"]
     CC["CommandingComponent\n▶ command bar"]
     GUX["GenUxPage\n🎨 Studio AI"]
   end
@@ -472,20 +472,44 @@ EMAIL_TO=team@yourdomain.com
 
 ### Page Objects
 
-| Export                 | Mode           | Description                                                                                                                                                                              |
-| ---------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CanvasAppRuntimePage` | ▶ Runtime      | Iframe management, gallery scroll, button/input helpers for a published Canvas app.                                                                                                      |
-| `CanvasAppPage`        | 🎨 Studio only | Power Apps Studio authoring (create, save, publish, add controls). Do **not** use in runtime tests.                                                                                      |
-| `ModelDrivenAppPage`   | 🔧 Mixed       | MDA navigation (`navigateToGridView`, `navigateToFormView`), component accessors (`.grid`, `.form`, `.commanding`). Studio designer methods also present — see region banners in source. |
+| Export                 | Mode           | Description                                                                                                                                                                                                                                                                                                           |
+| ---------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CanvasAppRuntimePage` | ▶ Runtime      | Iframe management, gallery scroll, button/input helpers for a published Canvas app.                                                                                                                                                                                                                                   |
+| `CanvasAppPage`        | 🎨 Studio only | Power Apps Studio authoring (create, save, publish, add controls). Do **not** use in runtime tests.                                                                                                                                                                                                                   |
+| `ModelDrivenAppPage`   | 🔧 Mixed       | MDA navigation (`navigateToGridView`, `navigateToFormView`), component accessors (`.grid`, `.commanding`) and Xrm client-API accessors (`.attribute`, `.entity`, `.webApi`, `.control`, `.subGrid`, `.navigation`, `.tab`, `.section`, `.form`). Studio designer methods also present — see region banners in source. |
 
 ### Components
 
 | Export                | Mode           | Description                                                                         |
 | --------------------- | -------------- | ----------------------------------------------------------------------------------- |
 | `GridComponent`       | ▶ Runtime      | ag-Grid: open record, select rows, get cell values, filter by column/keyword, sort. |
-| `FormComponent`       | ▶ Runtime      | Form operations via `FormContext`: get/set attributes, save, navigate tabs.         |
 | `CommandingComponent` | ▶ Runtime      | Command bar button interactions.                                                    |
 | `GenUxPage`           | 🎨 Studio only | AI page generation via Power Apps Studio "Describe a page".                         |
+
+### Xrm Client API (`components/model-driven/xrm/*`)
+
+Per [ADR 0001](../../docs/adr/0001-xrm-layer-replace-not-merge.md), these granular, per-concern
+classes replace MS's original monolithic `FormComponent`. Each wraps `window.Xrm.*` via
+`page.evaluate()`, is pure Xrm-API (no DOM interaction, `.subGrid.openNthRecord` aside), and wraps
+every `evaluate()` failure in `RethrownError`. Accessed via `modelDrivenApp.<name>`.
+
+| Export       | Accessor      | Description                                                                                   |
+| ------------ | ------------- | --------------------------------------------------------------------------------------------- |
+| `Attribute`  | `.attribute`  | Field get/set value, required level, dirty state.                                             |
+| `Entity`     | `.entity`     | Record save (races D365's duplicate-detection dialog via `DialogHandler`), refresh, metadata. |
+| `WebApi`     | `.webApi`     | Dataverse Web API: create/retrieve/update/delete, paged `retrieveAllRecords`.                 |
+| `Control`    | `.control`    | Form control visibility, disabled state, label, option-set options.                           |
+| `SubGrid`    | `.subGrid`    | Subgrid record count/IDs, opening the nth record.                                             |
+| `Tab`        | `.tab`        | Tab expand/collapse, visibility.                                                              |
+| `Section`    | `.section`    | Section visibility.                                                                           |
+| `Navigation` | `.navigation` | Open create/update/quick-create forms, navigate to a page input, open an app by ID.           |
+| `Form`       | `.form`       | Form-selector: current/available forms, switch the active form on a multi-form entity.        |
+
+`FormComponent` and its `.form` (form-context) accessor are retired. The standalone functions in
+`form.context.ts` (`getFormContext`, `getEntityAttribute`, `executeInFormContext`, etc.) remain
+exported for now — `form-context.test.ts` depends on capabilities (enumerating every attribute,
+running arbitrary Xrm code) the granular classes don't cover yet — but prefer the classes above
+for new code.
 
 ### Locators
 

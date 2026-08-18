@@ -22,9 +22,18 @@ import { Page, expect } from '@playwright/test';
 import { ModelDrivenAppLocators } from '../locators/model-driven-app.locators';
 import { findLocator } from '../utils/locator-helpers';
 import { GridComponent } from '../components/model-driven/grid.component';
-import { FormComponent } from '../components/model-driven/form.component';
 import { CommandingComponent } from '../components/model-driven/commanding.component';
-import { Attribute, Entity, WebApi } from '../components/model-driven/xrm';
+import {
+  Attribute,
+  Entity,
+  WebApi,
+  Control,
+  SubGrid,
+  Navigation,
+  Tab,
+  Section,
+  Form,
+} from '../components/model-driven/xrm';
 import { GridRecordOptions } from '../components/model-driven/types';
 import { addCertAuthRoute } from '../auth';
 import { XrmHelper } from '../core/xrm-helper';
@@ -40,19 +49,22 @@ export class ModelDrivenAppPage {
   // GridComponent (lazy-initialized)
   private _grid?: GridComponent;
 
-  // FormComponent (lazy-initialized)
-  private _form?: FormComponent;
-
   // CommandingComponent (lazy-initialized)
   private _commanding?: CommandingComponent;
 
   // Xrm client-API layer (lazy-initialized) — shared XrmHelper/DialogHandler
-  // so all three accessors observe the same readiness/dialog state.
+  // so every accessor observes the same readiness/dialog state.
   private _xrmHelper?: XrmHelper;
   private _dialogHandler?: DialogHandler;
   private _attribute?: Attribute;
   private _entity?: Entity;
   private _webApi?: WebApi;
+  private _control?: Control;
+  private _subGrid?: SubGrid;
+  private _navigation?: Navigation;
+  private _tab?: Tab;
+  private _section?: Section;
+  private _form?: Form;
 
   // Promise to track certificate auth setup
   private _certAuthSetup?: Promise<void>;
@@ -168,28 +180,6 @@ export class ModelDrivenAppPage {
   }
 
   /**
-   * Get FormComponent for advanced form operations
-   * Lazily initialized on first access
-   *
-   * @example
-   * ```typescript
-   * // Use form component directly
-   * const context = await modelDrivenApp.form.getContext();
-   * console.log('Entity:', context.entityName);
-   *
-   * const orderNumber = await modelDrivenApp.form.getAttribute('nwind_ordernumber');
-   * await modelDrivenApp.form.setAttribute('nwind_ordernumber', 'TEST-12345');
-   * await modelDrivenApp.form.save();
-   * ```
-   */
-  get form(): FormComponent {
-    if (!this._form) {
-      this._form = new FormComponent(this.page);
-    }
-    return this._form;
-  }
-
-  /**
    * Get CommandingComponent for command bar operations
    * Lazily initialized on first access
    *
@@ -271,6 +261,102 @@ export class ModelDrivenAppPage {
       this._webApi = new WebApi(this.xrmHelper);
     }
     return this._webApi;
+  }
+
+  /**
+   * Get Control for form control operations (visibility, disabled state, label, options).
+   * Lazily initialized on first access.
+   *
+   * @example
+   * ```typescript
+   * await modelDrivenApp.control.setVisible('nwind_ordernumber', false);
+   * ```
+   */
+  get control(): Control {
+    if (!this._control) {
+      this._control = new Control(this.xrmHelper);
+    }
+    return this._control;
+  }
+
+  /**
+   * Get SubGrid for subgrid operations (record count, record IDs, opening the nth record).
+   * Lazily initialized on first access.
+   *
+   * @example
+   * ```typescript
+   * const count = await modelDrivenApp.subGrid.getRecordCount('Orders_SubGrid');
+   * ```
+   */
+  get subGrid(): SubGrid {
+    if (!this._subGrid) {
+      this._subGrid = new SubGrid(this.xrmHelper);
+    }
+    return this._subGrid;
+  }
+
+  /**
+   * Get Navigation for opening create/update/quick-create forms and navigating
+   * to arbitrary page inputs. Lazily initialized on first access.
+   *
+   * @example
+   * ```typescript
+   * await modelDrivenApp.navigation.openUpdateForm('nwind_orders', recordId);
+   * ```
+   */
+  get navigation(): Navigation {
+    if (!this._navigation) {
+      this._navigation = new Navigation(this.xrmHelper, this.dialogHandler);
+    }
+    return this._navigation;
+  }
+
+  /**
+   * Get Tab for form tab operations (expand/collapse, visibility).
+   * Lazily initialized on first access.
+   *
+   * @example
+   * ```typescript
+   * await modelDrivenApp.tab.open('SUMMARY_TAB');
+   * ```
+   */
+  get tab(): Tab {
+    if (!this._tab) {
+      this._tab = new Tab(this.xrmHelper);
+    }
+    return this._tab;
+  }
+
+  /**
+   * Get Section for form section operations (visibility).
+   * Lazily initialized on first access.
+   *
+   * @example
+   * ```typescript
+   * await modelDrivenApp.section.setVisible('SUMMARY_TAB', 'ACCOUNT_INFO', false);
+   * ```
+   */
+  get section(): Section {
+    if (!this._section) {
+      this._section = new Section(this.xrmHelper);
+    }
+    return this._section;
+  }
+
+  /**
+   * Get Form for form-selector operations (switching the active form on a
+   * multi-form entity). Lazily initialized on first access.
+   *
+   * @example
+   * ```typescript
+   * await modelDrivenApp.form.switch({ byName: 'Order — Extended' });
+   * ```
+   */
+  get form(): Form {
+    if (!this._form) {
+      this._form = new Form(this.xrmHelper);
+    }
+    return this._form;
   }
 
   // ─── Studio / App Designer ────────────────────────────────────────────────
