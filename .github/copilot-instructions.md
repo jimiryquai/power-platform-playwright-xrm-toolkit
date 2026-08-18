@@ -89,14 +89,16 @@ await canvasFrame
 
 `ModelDrivenAppPage` splits into the **Xrm client-API layer** (`.attribute`, `.entity`, `.webApi`,
 `.control`, `.subGrid`, `.navigation`, `.tab`, `.section`, `.form`) and the **DOM/shell layer**
-(`.grid`, `.sidebar`, `.commanding`). MS's old monolithic `FormComponent` — `.form.getEntityAttribute()`
-/ `.setEntityAttribute()` / `.saveForm()` — is **retired** (ADR 0001); `.form` now names the
+(`.grid`, `.sidebar`, `.commanding`) — see [CLAUDE.md's canonical accessor
+table](../CLAUDE.md#reference-modeldrivenapppage-accessors-xrm-layer-vs-domshell-layer) for what
+each one covers. MS's old monolithic `FormComponent` — `.form.getEntityAttribute()` /
+`.setEntityAttribute()` / `.saveForm()` — is **retired** (ADR 0001); `.form` now names the
 granular `Form` class (form-selector only). Follow CLAUDE.md §9's read-via-Xrm/write-via-DOM
 boundary: read for assertions via Xrm, write/save the way a real user would via the DOM.
 
 ```typescript
 const mda = appProvider.getModelDrivenAppPage();
-await mda.grid.navigateToGridView('nwind_order');
+await mda.navigateToGridView('nwind_order');
 await mda.grid.openRecord({ rowNumber: 0 });
 
 // Read via Xrm — for assertions

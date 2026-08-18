@@ -38,7 +38,7 @@ Match the error against the table below **before** opening any other file.
 | Save succeeds but `getValue()` is null                                     | §9 — DOM updated, Xrm not                           | Use `attribute.setValue()` (NOT `setEntityAttribute`)   |
 | Canvas Edit text concatenates                                              | §10 — Control+A intercepted                         | `el.evaluate(e => e.select())`                          |
 | `Cannot find module 'power-platform-playwright-toolkit'`                   | §11 — toolkit not built                             | `npm run build:toolkit`                                 |
-| `Attribute '<name>' not found on form` from `.attribute`/`.control`/`.subGrid` | §9 — Xrm-layer classes throw this deliberately (ADR 0001) | Verify the schema name in the form editor; rule out §2a (inactive record) first |
+| `Attribute '<name>' not found on form` from `.attribute.getValue()`/`.setValue()` | §9 — Xrm-layer classes throw this deliberately (ADR 0001) | Verify the schema name in the form editor; rule out §2a (inactive record) first |
 | `DuplicateRecordsFoundError` from `.entity.save()`                         | Xrm-layer — duplicate-detection dialog fired mid-save | Fix colliding test data (factory naming), or pass `save(true)` intentionally |
 | `Subgrid control '<name>' not found on form`                               | Xrm-layer — wrong schema name or subgrid on a collapsed tab/section | Check the subgrid's schema name and that its tab/section is expanded |
 

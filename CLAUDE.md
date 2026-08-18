@@ -186,7 +186,6 @@ All commands run from `packages/e2e-tests/`.
 # Run a specific project (recommended)
 npx playwright test --project=canvas-app
 npx playwright test --project=model-driven-app
-npx playwright test --project=custom-page
 npx playwright test --project=studio-authoring
 npx playwright test --project=gen-ux-runtime
 
@@ -213,10 +212,15 @@ Defined in `playwright.config.ts`:
 | ------------------ | ----------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------- |
 | `canvas-app`       | `tests/northwind/canvas/`                                   | `state-<email>.json`     | Northwind Canvas App CRUD (gallery, add, save, reload)                 |
 | `model-driven-app` | `tests/northwind/mda/`                                      | `state-mda-<email>.json` | Northwind MDA CRUD, FormContext API                                    |
-| `custom-page`      | `tests/northwind/custom-page/custom-page-crud.test.ts`      | `state-mda-<email>.json` | Canvas custom page embedded inside MDA (runtime play mode)             |
 | `studio-authoring` | `**/custom-page.test.ts` + `**/gen-ux/basic-form/*.test.ts` | `state-<email>.json`     | Studio Edit mode: create custom pages; Gen UX app generation + publish |
 | `gen-ux-runtime`   | `**/gen-ux/runtime/*.test.ts`                               | `state-<email>.json`     | Published Gen UX app runtime (requires `GEN_UX_APP_URL` in `.env`)     |
-| `default`          | `tests/` (all)                                              | `state-<email>.json`     | Catch-all project running everything                                   |
+| `default`          | `tests/` (all, excluding `**/custom-page/**`)                | `state-<email>.json`     | Catch-all project running everything else                              |
+
+> **`custom-page` is not a runnable project** — it's commented out in `playwright.config.ts`
+> (the stock Northwind solution ships no custom page; see [below](#northwind-traders-solution)).
+> Its own test, `custom-page-crud.test.ts`, currently runs under no active project. Don't run
+> `--project=custom-page` — Playwright reports "no tests found". `studio-authoring` covers a
+> *different* file, `custom-page.test.ts`, which creates the custom page in Studio.
 
 > **Gen UX note**: The `studio-authoring` project requires an environment where the
 > **"Describe a page"** AI button is present in the Maker Portal app designer.
@@ -468,7 +472,6 @@ npm run auth:headful                  # Authenticate (Canvas + Gen UX)
 npm run auth:mda:headful              # Authenticate (MDA / CRM domain)
 npx playwright test --project=canvas-app
 npx playwright test --project=model-driven-app
-npx playwright test --project=custom-page
 npx playwright test --project=studio-authoring
 npx playwright test --project=gen-ux-runtime
 npx playwright test --ui              # Interactive UI mode
@@ -601,6 +604,36 @@ This section documents recurring failure modes in Power Platform Playwright test
 **AI agents — read this section before generating any new test or toolkit code.**
 Every entry shows the broken pattern, the correct pattern, and (usually) the
 underlying reason so you can recognise variants of the same trap.
+
+### Reference: `ModelDrivenAppPage` Accessors (Xrm Layer vs DOM/Shell Layer)
+
+This is the **canonical** accessor table — the author/diagnose/validate agents and their
+Copilot-prompt/skill mirrors link here instead of restating it, so it only needs updating in
+one place when the API surface changes. Per ADR 0001, MS's old monolithic `FormComponent` —
+`.form.getEntityAttribute()` / `.setEntityAttribute()` / `.saveForm()` — is **retired**. Never
+generate code against it; `.form` now names the granular `Form` class (form-selector only).
+
+| Accessor             | Class                  | Layer | Covers                                                                        |
+| --------------------- | ----------------------- | ----- | -------------------------------------------------------------------------------- |
+| `.attribute`          | `Attribute`              | Xrm   | Field get/set value, required level, dirty state — throws `Attribute '<name>' not found on form` |
+| `.entity`             | `Entity`                 | Xrm   | Record save (throws `DuplicateRecordsFoundError` on unhandled duplicates), refresh, id/entity reference, form type |
+| `.webApi`             | `WebApi`                 | Xrm   | Dataverse CRUD (create/retrieve/update/delete), auto-paging `retrieveAllRecords`  |
+| `.control`            | `Control`                | Xrm   | Control visibility, disabled state, label, options — throws `Control '<name>' not found on form` |
+| `.subGrid`            | `SubGrid`                | Xrm   | Subgrid record count, record IDs, open nth record, visibility — throws `Subgrid control '<name>' not found on form` |
+| `.navigation`         | `Navigation`             | Xrm   | Open create/update/quick-create forms, `navigateTo`, open app by ID               |
+| `.tab` / `.section`   | `Tab` / `Section`        | Xrm   | Tab/section expand-collapse and visibility                                       |
+| `.form`               | `Form`                   | Xrm   | Form selector: switch/list forms on a multi-form entity                          |
+| `.grid`               | `GridComponent`          | DOM   | ag-Grid: rows, cell values, sort, filter, checkbox selection                     |
+| `.sidebar`            | `Sidebar`                | DOM   | Site-map navigation: sub-areas, recent/pinned, area switcher                     |
+| `.commanding`         | `CommandingComponent`    | DOM   | Command bar/ribbon: click, overflow menu, named shortcuts (save, deactivate)      |
+
+Every Xrm-layer class's `page.evaluate()` failures are wrapped in `RethrownError`, preserving
+both the browser-side and test-call-site stack trace — read both halves when diagnosing one.
+`navigateToGridView()` / `navigateToFormView()` are methods on `ModelDrivenAppPage` itself, not
+on `.grid` — `.grid` is only the `GridComponent` accessor (rows, cells, sort/filter).
+
+See [§9 below](#9-read-via-xrm-write-via-dom--the-modelui-boundary) for which side of this table
+to call from.
 
 ### 1. `page.waitForFunction` — Options Must Be the Third Argument
 

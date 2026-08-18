@@ -52,21 +52,10 @@ Read [packages/power-platform-playwright-toolkit/src/](../../packages/power-plat
 DOM) and the **DOM/shell layer** (drives the rendered UCI). Per ADR 0001, MS's old monolithic
 `FormComponent` — `.form.getEntityAttribute()` / `.setEntityAttribute()` / `.saveForm()` — is
 **retired**. Never generate code against it. `.form` now names the granular `Form` class
-(form-selector only, not field access).
-
-| Accessor             | Class                 | Layer | Covers                                                                       |
-| --------------------- | ---------------------- | ----- | ------------------------------------------------------------------------------ |
-| `.attribute`          | `Attribute`            | Xrm   | Field get/set value, required level, dirty state — see CLAUDE.md §9            |
-| `.entity`             | `Entity`                | Xrm   | Record save, refresh, id/entity reference, form type                          |
-| `.webApi`             | `WebApi`                | Xrm   | Dataverse CRUD (create/retrieve/update/delete), auto-paging `retrieveAllRecords` |
-| `.control`            | `Control`               | Xrm   | Control visibility, disabled state, label, options                            |
-| `.subGrid`            | `SubGrid`               | Xrm   | Subgrid record count, record IDs, open nth record, visibility                 |
-| `.navigation`         | `Navigation`            | Xrm   | Open create/update/quick-create forms, `navigateTo`, open app by ID           |
-| `.tab` / `.section`   | `Tab` / `Section`       | Xrm   | Tab/section expand-collapse and visibility                                    |
-| `.form`               | `Form`                  | Xrm   | Form selector: switch/list forms on a multi-form entity                       |
-| `.grid`               | `GridComponent`         | DOM   | ag-Grid: rows, cell values, sort, filter, checkbox selection                  |
-| `.sidebar`            | `Sidebar`               | DOM   | Site-map navigation: sub-areas, recent/pinned, area switcher                  |
-| `.commanding`         | `CommandingComponent`   | DOM   | Command bar/ribbon: click, overflow menu, named shortcuts (save, deactivate)  |
+(form-selector only, not field access). See
+[CLAUDE.md's canonical accessor table](../../CLAUDE.md#reference-modeldrivenapppage-accessors-xrm-layer-vs-domshell-layer)
+for the full `.attribute`/`.entity`/`.webApi`/`.control`/`.subGrid`/`.navigation`/`.tab`/`.section`/`.form`
+(Xrm) vs `.grid`/`.sidebar`/`.commanding` (DOM) accessor list — don't restate it here, it drifts.
 
 **Apply [CLAUDE.md §9's read-via-Xrm/write-via-DOM boundary](../../CLAUDE.md#9-read-via-xrm-write-via-dom--the-modelui-boundary)
 when deciding which side to call**: read a value for an assertion through `.attribute`/`.entity`
