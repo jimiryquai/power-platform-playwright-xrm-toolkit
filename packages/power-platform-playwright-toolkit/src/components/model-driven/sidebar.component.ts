@@ -10,7 +10,7 @@
  * @packageDocumentation
  */
 
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { ModelDrivenAppLocators } from '../../locators/model-driven-app.locators';
 import { RethrownError } from '../../core/rethrown-error';
 import {
@@ -65,6 +65,7 @@ export class Sidebar {
     try {
       const locator = S.TreeItemByAriaLabel(this.page, ariaLabel);
       await locator.waitFor({ state: 'visible' });
+      await expect(locator).toBeEnabled();
 
       await this.dialogHandler.run(
         () => locator.click(),
@@ -107,8 +108,9 @@ export class Sidebar {
       if (isExpanded === 'false') {
         const expandButton = S.TreeItemExpandButton(menu);
         await expandButton.waitFor({ state: 'visible' });
+        await expect(expandButton).toBeEnabled();
         await expandButton.click();
-        await menu.waitFor({ state: 'attached' });
+        await expect(menu).toHaveAttribute('aria-expanded', 'true');
       }
     } catch (e) {
       throw new RethrownError(`Error expanding menu '${menuLabel}'`, e as Error);
@@ -123,6 +125,7 @@ export class Sidebar {
       if (isExpanded === 'true') {
         const collapseButton = S.TreeItemExpandButton(menu);
         await collapseButton.click();
+        await expect(menu).toHaveAttribute('aria-expanded', 'false');
       }
     } catch (e) {
       throw new RethrownError(`Error collapsing menu '${menuLabel}'`, e as Error);
