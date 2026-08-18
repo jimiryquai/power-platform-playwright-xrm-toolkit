@@ -255,13 +255,14 @@ export const ModelDrivenAppLocators = {
         FilterPanel: (ctx: Ctx) => ctx.locator('div[role="dialog"], div.ms-Panel'),
 
         // ── Checkbox selection ───────────────────────────────────────────────
-        // ARIA role first — the modern grid control renders this as role="checkbox"
-        // on a non-<input> element (confirmed live against a Northwind grid), so an
-        // `input[type="checkbox"]`-only selector matches nothing on that version.
-        // CSS fallbacks cover the classic ag-Grid-era markup.
+        // ARIA role first, matched against every accessible name seen live across
+        // grid control versions: "Select all" (Fluent UI v8 `ms-Checkbox`,
+        // confirmed via real DOM) and "Toggle selection of all rows" (the
+        // ARIA-tree-only modern grid). CSS fallbacks cover ag-Grid-era markup and
+        // the `ms-Checkbox` wrapper CCA's original selector targeted.
         CheckboxSelectAll: (ctx: Ctx) =>
           ctx
-            .getByRole('checkbox', { name: /toggle selection of all rows/i })
+            .getByRole('checkbox', { name: /^select all$|toggle selection of all rows/i })
             .or(
               ctx.locator(
                 [
@@ -269,6 +270,8 @@ export const ModelDrivenAppLocators = {
                   'div.ag-header-select-all input[type="checkbox"]',
                   'input[type="checkbox"][aria-label*="Toggle selection of all rows"]',
                   'input[type="checkbox"][aria-label*="all rows"]',
+                  'input[type="checkbox"][aria-label="Select all"]',
+                  'input[type="checkbox"][title="Select all"]',
                 ].join(', ')
               )
             ),

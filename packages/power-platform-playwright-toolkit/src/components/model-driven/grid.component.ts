@@ -384,7 +384,7 @@ export class GridComponent {
   async selectAllRecords(): Promise<void> {
     try {
       await this.waitForGridLoad();
-      await this.gridLocators.CheckboxSelectAll(this.page).first().click({ force: true });
+      await this.toggleSelectAllCheckbox();
       await this.gridLocators.SelectedRow(this.page).first().waitFor({ state: 'attached' });
     } catch (e) {
       throw new RethrownError('Error selecting all records', e as Error);
@@ -399,13 +399,32 @@ export class GridComponent {
       if (!(await this.areAllRecordsSelected())) return;
 
       await this.waitForGridLoad();
-      await this.gridLocators.CheckboxSelectAll(this.page).first().click({ force: true });
+      await this.toggleSelectAllCheckbox();
       // Reuses the SelectedRow locator (also used by selectAllRecords) rather than
       // duplicating its selector string in a page.waitForFunction.
       await expect(this.gridLocators.SelectedRow(this.page)).toHaveCount(0, { timeout: 10000 });
     } catch (e) {
       throw new RethrownError('Error deselecting all records', e as Error);
     }
+  }
+
+  /**
+   * Toggles the header "select all" checkbox via the keyboard rather than a
+   * mouse click.
+   *
+   * Confirmed live (#26/#43): on at least one grid control version the
+   * semantic `role="checkbox"` element is not the actual pointer-cursor click
+   * target — a decorative sibling is — so `click({ force: true })` resolves
+   * the right element but doesn't toggle it. The grid's own row hint text
+   * ("Press SPACE to select this row") confirms Space is the supported
+   * interaction; focus + Space works for both that custom-widget case and a
+   * plain native `<input type="checkbox">`, without depending on which
+   * element visually owns the click.
+   */
+  private async toggleSelectAllCheckbox(): Promise<void> {
+    const checkbox = this.gridLocators.CheckboxSelectAll(this.page).first();
+    await checkbox.focus();
+    await checkbox.press('Space');
   }
 
   /**
@@ -416,7 +435,20 @@ export class GridComponent {
       await this.waitForGridLoad();
       const checkbox = this.gridLocators.CheckboxSelectAll(this.page).first();
       if ((await checkbox.count()) === 0) return false;
-      return await checkbox.evaluate((el: HTMLInputElement) => el.checked);
+
+      // A native <input>'s own `.checked` is authoritative when there is one, but
+      // Fluent UI v8's `ms-Checkbox` reflects checked state as an `is-checked`
+      // class on the *wrapping* div (confirmed against real DOM in #26) — and the
+      // modern grid's role="checkbox" element may not be an <input> at all. Check
+      // every signal rather than assuming one representation.
+      return await checkbox.evaluate((el: Element) => {
+        if (el instanceof HTMLInputElement && el.checked) return true;
+        if (el.getAttribute('aria-checked') === 'true') return true;
+        const container = el.closest('.ms-Checkbox, .ag-checkbox') ?? el;
+        return (
+          container.classList.contains('is-checked') || container.classList.contains('ag-checked')
+        );
+      });
     } catch (e) {
       throw new RethrownError('Error checking whether all records are selected', e as Error);
     }
