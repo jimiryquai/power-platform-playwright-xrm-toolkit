@@ -162,12 +162,12 @@ GEN UX (optional)
 
 PROJECT SCOPE
 13. Which Playwright project(s) should I run?
-      A) all                   (every active project — canvas-app + model-driven-app + studio-authoring + gen-ux-runtime + default)
+      A) all                   (every configured project — see the "all" and "default" caveat below)
       B) canvas-app            (Northwind Canvas CRUD)
       C) model-driven-app      (Northwind MDA CRUD + FormContext)
       D) studio-authoring      (Studio edit mode + Gen UX generate/publish — needs Gen UX env)
       E) gen-ux-runtime        (published Gen UX app — needs GEN_UX_APP_URL)
-      F) default               (catch-all: every *.test.ts except custom-page/)
+      F) default               (catch-all — see caveat below; prefer B/C/D/E individually)
       G) custom — list project names
 
       Note: `custom-page` is commented out in playwright.config.ts (the stock Northwind
@@ -177,6 +177,19 @@ PROJECT SCOPE
       file, `custom-page.test.ts`, which creates the custom page in Studio rather than testing
       an already-deployed one. Don't offer `--project=custom-page` — Playwright will error with
       "no tests found".
+
+      **`default`/`all` caveat**: `default`'s `testDir` covers all of `tests/` (minus
+      `custom-page/`), which includes `tests/northwind/mda/*.test.ts` — but per
+      `playwright.config.ts`, `default`'s `storageState` is hardcoded to the **Canvas** auth
+      file (`state-<email>.json`), never the MDA one. MDA tests run under `default` will hit
+      `*.crm.dynamics.com` with Canvas-domain cookies and fail on authentication, which reads
+      like a toolkit bug but is actually a project-selection mistake — steer the user toward
+      `model-driven-app` explicitly for MDA coverage instead of `default`. Selecting `all` maps
+      to no `--project` filter, so Playwright runs **every** configured project including
+      `default` — meaning canvas/MDA/gen-ux tests already covered by their own named projects
+      run again under `default` (with the MDA subset failing there for the reason above). Warn
+      the user that `all`'s pass/fail counts will include this duplication and the domain-auth
+      failures under `default` before they read them as regressions.
 
 14. Headed mode?  (default: no — runs headless)
       Pass --headed for the model to drive a visible browser.

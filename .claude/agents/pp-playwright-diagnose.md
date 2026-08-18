@@ -45,7 +45,7 @@ Match the error against the anti-pattern table below **before** opening any othe
 | `Cannot find module 'power-platform-playwright-toolkit'`                   | Toolkit not built                                    | CLAUDE.md §11 — `npm run build:toolkit`                                 |
 | `Attribute '<name>' not found on form` from `.attribute.getValue()`/`.setValue()` | Wrong logical name, or field genuinely not bound (inactive record — see §2/§2a first) | CLAUDE.md §9 — Xrm-layer classes throw this deliberately per ADR 0001; verify the schema name in the form editor, then rule out §2a before treating it as a real bug |
 | `DuplicateRecordsFoundError` thrown from `.entity.save()`                  | D365's duplicate-detection dialog fired mid-save     | Xrm-layer, not a selector issue — either the test data collides (fix the factory/unique naming), or pass `save(true)` to proceed intentionally |
-| `Subgrid control '<name>' not found on form`                               | Wrong subgrid schema name, or subgrid not on this form/tab | CLAUDE.md §9 — check the subgrid's actual name in the form editor; confirm the tab/section containing it is expanded/visible (§ Tab/Section) |
+| `Subgrid control '<name>' not found on form`                               | Wrong subgrid schema name, or subgrid not on this form/tab | CLAUDE.md §9 — check the subgrid's actual name in the form editor; confirm the tab/section containing it is expanded/visible (`.tab`/`.section` accessors — see the accessor table) |
 | Xrm.WebApi 400/`Invalid property` from `.webApi.createRecord()`/`updateRecord()` | Wrong logical/attribute name, or a required field omitted | Xrm-layer — read the error body (it names the bad field), not a toolkit bug |
 
 If a fragment matches:

@@ -51,6 +51,14 @@ If `.env` already exists with all required keys, ask whether to keep / overwrite
 11. `GEN_UX_APP_URL` (optional — leave blank to skip `gen-ux-runtime`)
 12. Which Playwright project: `all` / `canvas-app` / `model-driven-app` / `studio-authoring` / `gen-ux-runtime` / `default`
     (`custom-page` is commented out in `playwright.config.ts` — the stock Northwind solution ships no custom page; don't offer it, Playwright would report "no tests found")
+
+    **`default`/`all` caveat**: `default`'s `testDir` includes `tests/northwind/mda/*.test.ts`,
+    but its `storageState` is hardcoded to the Canvas auth file, never the MDA one — MDA tests
+    run under `default` hit the wrong domain and fail on authentication. Prefer `model-driven-app`
+    explicitly for MDA coverage. `all` runs every configured project including `default`, so
+    canvas/MDA/gen-ux tests already covered by their own named projects run again under
+    `default` (with the MDA subset failing there) — warn the user before they read the
+    duplicated/failed counts as regressions.
 13. Headed mode? (default: no)
 
 ## Step 2 — Write .env

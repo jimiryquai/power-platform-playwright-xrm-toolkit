@@ -70,6 +70,10 @@ MS_AUTH_STORAGE_STATE_EXPIRATION — hours (default: 24)
 > `custom-page` is commented out in `playwright.config.ts` — the stock Northwind solution ships
 > no custom page. `custom-page-crud.test.ts` currently runs under no active project;
 > `studio-authoring` covers `custom-page.test.ts` instead (creates the custom page in Studio).
+>
+> `default` includes `tests/northwind/mda/*.test.ts` in its test directory but its storage state
+> is hardcoded to the Canvas auth file — those MDA tests fail authentication under `default`.
+> Use `model-driven-app` explicitly for MDA coverage instead.
 
 ---
 
@@ -104,9 +108,9 @@ await mda.grid.openRecord({ rowNumber: 0 });
 // Read via Xrm — for assertions
 const value = await mda.attribute.getValue('nwind_ordernumber');
 
-// Write via DOM — simulating a real user, then commit via Xrm without firing onChange (§9)
-// ...fill the on-screen control, then commit:
-await mda.attribute.setValue('nwind_description', 'Updated');
+// Write via DOM — the test's Act phase, simulating a real user typing into the field
+await mda.fillFormField('nwind_description', 'Updated');
+// ...or, as a test-SETUP shortcut only (not the Act phase): mda.attribute.setValue(...)
 
 // Save via DOM as a user (commanding.save()), or via Xrm as a setup shortcut (mda.entity.save())
 await mda.commanding.save();

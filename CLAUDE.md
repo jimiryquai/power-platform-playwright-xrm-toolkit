@@ -221,6 +221,15 @@ Defined in `playwright.config.ts`:
 > Its own test, `custom-page-crud.test.ts`, currently runs under no active project. Don't run
 > `--project=custom-page` — Playwright reports "no tests found". `studio-authoring` covers a
 > *different* file, `custom-page.test.ts`, which creates the custom page in Studio.
+>
+> **`default`'s auth state is wrong for the MDA tests it includes.** `default`'s test directory
+> covers all of `tests/` (minus `custom-page/`) — including `tests/northwind/mda/*.test.ts` —
+> but its `storageState` is hardcoded to the **Canvas** auth file, never the MDA one. Those MDA
+> tests fail authenticating against `*.crm.dynamics.com` when run under `default`. Prefer
+> `model-driven-app` explicitly for MDA coverage. Running `all` (no `--project` filter) runs
+> every project including `default`, so canvas/MDA/gen-ux tests already covered by their own
+> named projects run again under `default` — expect duplicated results and the MDA-under-`default`
+> failures described above, not a regression.
 
 > **Gen UX note**: The `studio-authoring` project requires an environment where the
 > **"Describe a page"** AI button is present in the Maker Portal app designer.
