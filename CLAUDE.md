@@ -495,6 +495,49 @@ npx playwright show-report            # Open last HTML report
 
 ---
 
+## Testing Philosophy: What to Assert On
+
+Power Platform apps are low-code and managed — you almost never get to swap in a
+test double for the backend the way you could in hand-rolled code. That means most
+tests here are inherently end-to-end by default: if an app can't do its job without
+a Dataverse write or a Power Automate flow, a test that clicks the button but never
+lets the real flow/backend run isn't testing what the user actually experiences.
+
+So the useful question isn't "is this an e2e test?" — usually yes. It's **what are
+you actually asserting on, and how directly?** Roughly three tiers, weakest to
+strongest:
+
+1. **UI side-effect only** — some element becomes visible/enabled/changes text after
+   the action. Cheap and often necessary (it's what the user sees), but a backend
+   process that silently does the wrong thing can still leave the right pixel lit.
+2. **Network intercept** — assert on the actual response of the call the app made
+   (`page.waitForResponse()` / `page.route()`), rather than inferring success from
+   the UI. Stronger, but couples the test to a request/response shape you may not
+   control (e.g. a Canvas app invoking a Power Automate flow goes through Power
+   Apps' own connector-invocation endpoint — filterable by `invoke` in the URL —
+   not the flow's raw trigger URL, so the payload can be a proxied shape rather
+   than the flow's own). A flow whose output is a Power Apps **UDT** (User Defined
+   Type) narrows this gap — it gives a documented, stable schema to assert against
+   instead of reverse-engineering whatever JSON comes back.
+3. **Backend state via the system the action actually writes to** — after the
+   action, read back the real record/row from its source of truth. Strongest,
+   because it can't be fooled by a process that "looks" like it worked. This is
+   already the pattern in `tests/northwind/mda/model-driven-crud.test.ts`, which
+   reads back via `Xrm.WebApi.retrieveRecord` rather than trusting the UI or the
+   form's dirty-state, specifically because UI state is a lagging, sometimes-lying
+   indicator (see also Anti-Pattern § 9 below on DOM vs Xrm model).
+
+Default to tier 3 for anything that matters to the test's actual assertion. Tiers 1
+and 2 are fine as fast-fail checks or for surfacing *why* something failed, but
+shouldn't be the only thing standing between a passing test and a broken feature.
+
+A toolkit helper for tier 2 against Power Automate flow responses specifically
+(matching the `invoke` call, validating against a UDT-typed response) is tracked as
+a someday-maybe in [issue #41](https://github.com/jimiryquai/power-platform-playwright-xrm-toolkit/issues/41)
+— not built yet.
+
+---
+
 ## AI Agent Reference: Anti-Patterns
 
 This section documents recurring failure modes in Power Platform Playwright tests.
