@@ -105,6 +105,11 @@ export class FormComponent {
    * Get form context information
    * Returns entity name, ID, attributes, and form state
    *
+   * @deprecated Use `.entity` (`getId`, `getEntityName`, `isDirty`, `isValid`)
+   * and `.attribute` (`getValue` for each field) instead — per ADR 0001 this
+   * is the class ADR 0001 replaces, kept only until #25 finishes porting the
+   * rest of this component.
+   *
    * @returns FormContext data
    *
    * @example
@@ -122,6 +127,9 @@ export class FormComponent {
   /**
    * Get attribute value from form
    *
+   * @deprecated Use `.attribute.getValue(attributeName)` instead — see
+   * {@link FormComponent.getContext}.
+   *
    * @param attributeName - Logical name of the attribute
    * @returns Attribute value
    *
@@ -138,6 +146,9 @@ export class FormComponent {
 
   /**
    * Set attribute value on form
+   *
+   * @deprecated Use `.attribute.setValue(attributeName, value)` instead — see
+   * {@link FormComponent.getContext}.
    *
    * @param attributeName - Logical name of the attribute
    * @param value - Value to set
@@ -168,6 +179,9 @@ export class FormComponent {
   /**
    * Get all attribute values from form
    *
+   * @deprecated No direct replacement yet on `.attribute`/`.entity` — see
+   * {@link FormComponent.getContext}.
+   *
    * @returns Object with all attribute names and values
    *
    * @example
@@ -183,6 +197,10 @@ export class FormComponent {
 
   /**
    * Save the form
+   *
+   * @deprecated Use `.entity.save(ignoreDuplicateCheck)` instead — it races
+   * D365's duplicate-detection dialog via `DialogHandler` rather than a
+   * fixed 2s wait. See {@link FormComponent.getContext}.
    *
    * @param options - Save options
    *
@@ -205,6 +223,9 @@ export class FormComponent {
   /**
    * Check if form has unsaved changes
    *
+   * @deprecated Use `.entity.isDirty()` instead — see
+   * {@link FormComponent.getContext}.
+   *
    * @returns true if form has unsaved changes
    *
    * @example
@@ -222,6 +243,9 @@ export class FormComponent {
   /**
    * Check if form data is valid
    *
+   * @deprecated Use `.entity.isValid()` instead — see
+   * {@link FormComponent.getContext}.
+   *
    * @returns true if all form data is valid
    *
    * @example
@@ -238,6 +262,10 @@ export class FormComponent {
 
   /**
    * Refresh form data without reloading the page
+   *
+   * @deprecated Use `.entity.refresh(save)` instead — it waits on
+   * `XrmHelper.waitForIdleness()` (a real UCI-idle poll) rather than a fixed
+   * 2s wait. See {@link FormComponent.getContext}.
    *
    * @param save - Whether to save before refreshing
    *
@@ -257,7 +285,12 @@ export class FormComponent {
   /**
    * Execute JavaScript in Model-Driven App context with access to Xrm
    *
-   * @param fn - Function to execute in browser context (receives Xrm object)
+   * `fn` crosses into the browser as source text, not a closure — pass
+   * anything it needs from the caller's scope via `arg` (see
+   * {@link executeInFormContext}), not by referencing an outer variable.
+   *
+   * @param fn - Function to execute in browser context (receives Xrm object and arg)
+   * @param arg - Value to pass into the callback
    * @returns Result from the executed function
    *
    * @example
@@ -270,14 +303,14 @@ export class FormComponent {
    *   };
    * });
    *
-   * // Show notification
-   * await form.execute((Xrm) => {
-   *   Xrm.Page.ui.setFormNotification('Record updated', 'INFO', 'test-notification');
-   * });
+   * // Show notification — the message crosses via `arg`, not closure capture.
+   * await form.execute((Xrm, message: string) => {
+   *   Xrm.Page.ui.setFormNotification(message, 'INFO', 'test-notification');
+   * }, 'Record updated');
    * ```
    */
-  async execute<T>(fn: (Xrm: any) => T): Promise<T> {
-    return await executeInFormContext(this.page, fn);
+  async execute<T, A = undefined>(fn: (Xrm: any, arg: A) => T, arg?: A): Promise<T> {
+    return await executeInFormContext(this.page, fn, arg);
   }
 
   /**

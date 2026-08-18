@@ -24,8 +24,11 @@ import { findLocator } from '../utils/locator-helpers';
 import { GridComponent } from '../components/model-driven/grid.component';
 import { FormComponent } from '../components/model-driven/form.component';
 import { CommandingComponent } from '../components/model-driven/commanding.component';
+import { Attribute, Entity, WebApi } from '../components/model-driven/xrm';
 import { GridRecordOptions } from '../components/model-driven/types';
 import { addCertAuthRoute } from '../auth';
+import { XrmHelper } from '../core/xrm-helper';
+import { DialogHandler } from '../core/dialog-handler';
 import * as fs from 'fs';
 
 export class ModelDrivenAppPage {
@@ -42,6 +45,14 @@ export class ModelDrivenAppPage {
 
   // CommandingComponent (lazy-initialized)
   private _commanding?: CommandingComponent;
+
+  // Xrm client-API layer (lazy-initialized) — shared XrmHelper/DialogHandler
+  // so all three accessors observe the same readiness/dialog state.
+  private _xrmHelper?: XrmHelper;
+  private _dialogHandler?: DialogHandler;
+  private _attribute?: Attribute;
+  private _entity?: Entity;
+  private _webApi?: WebApi;
 
   // Promise to track certificate auth setup
   private _certAuthSetup?: Promise<void>;
@@ -195,6 +206,71 @@ export class ModelDrivenAppPage {
       this._commanding = new CommandingComponent(this.page);
     }
     return this._commanding;
+  }
+
+  private get xrmHelper(): XrmHelper {
+    if (!this._xrmHelper) {
+      this._xrmHelper = new XrmHelper(this.page);
+    }
+    return this._xrmHelper;
+  }
+
+  private get dialogHandler(): DialogHandler {
+    if (!this._dialogHandler) {
+      this._dialogHandler = new DialogHandler(this.page);
+    }
+    return this._dialogHandler;
+  }
+
+  /**
+   * Get Attribute for field-level Xrm operations (get/set value, required level, dirty state).
+   * Lazily initialized on first access.
+   *
+   * @example
+   * ```typescript
+   * await modelDrivenApp.attribute.setValue('nwind_ordernumber', 'TEST-12345');
+   * const value = await modelDrivenApp.attribute.getValue('nwind_ordernumber');
+   * ```
+   */
+  get attribute(): Attribute {
+    if (!this._attribute) {
+      this._attribute = new Attribute(this.xrmHelper);
+    }
+    return this._attribute;
+  }
+
+  /**
+   * Get Entity for record-level Xrm operations (save, refresh, record metadata).
+   * Lazily initialized on first access.
+   *
+   * @example
+   * ```typescript
+   * const recordId = await modelDrivenApp.entity.save();
+   * ```
+   */
+  get entity(): Entity {
+    if (!this._entity) {
+      this._entity = new Entity(this.xrmHelper, this.dialogHandler);
+    }
+    return this._entity;
+  }
+
+  /**
+   * Get WebApi for Dataverse Web API operations (create/retrieve/update/delete records).
+   * Lazily initialized on first access.
+   *
+   * @example
+   * ```typescript
+   * const { id } = await modelDrivenApp.webApi.createRecord('nwind_orders', {
+   *   nwind_ordernumber: 'TEST-12345',
+   * });
+   * ```
+   */
+  get webApi(): WebApi {
+    if (!this._webApi) {
+      this._webApi = new WebApi(this.xrmHelper);
+    }
+    return this._webApi;
   }
 
   // ─── Studio / App Designer ────────────────────────────────────────────────

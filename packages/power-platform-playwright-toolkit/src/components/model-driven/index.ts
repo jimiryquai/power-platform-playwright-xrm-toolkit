@@ -11,3 +11,4 @@ export * from './grid.component';
 export * from './form.component';
 export * from './form.context';
 export * from './commanding.component';
+export * from './xrm';

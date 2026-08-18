@@ -488,8 +488,18 @@ export async function refreshForm(page: Page, save: boolean = false): Promise<vo
  * This is a low-level method that allows running arbitrary JavaScript
  * in the Model-Driven App context where Xrm and formContext are available.
  *
+ * `fn` crosses into the browser as a *string* (`fn.toString()`, rebuilt via
+ * `new Function`), so it runs with none of the closures it had in Node —
+ * any outer-scope variable it references resolves to `undefined` there,
+ * surfacing as `ReferenceError: <name> is not defined` with no indication
+ * the cause was closure capture. Pass anything the callback needs via `arg`
+ * instead; `arg` crosses as a real value through `page.evaluate`, not as
+ * source text, so it survives.
+ *
  * @param page - Playwright page object
- * @param fn - Function to execute in browser context (receives Xrm object)
+ * @param fn - Function to execute in browser context (receives Xrm object and arg)
+ * @param arg - Value to pass into the callback — the only safe way to get
+ * data from the caller's scope into the browser
  * @returns Result from the executed function
  *
  * @example
@@ -502,21 +512,35 @@ export async function refreshForm(page: Page, save: boolean = false): Promise<vo
  *   };
  * });
  *
- * // Show notification
- * await executeInFormContext(page, (Xrm) => {
- *   Xrm.Page.ui.setFormNotification('Record updated', 'INFO', 'test-notification');
- * });
+ * // Show notification — the message crosses via `arg`, not closure capture.
+ * await executeInFormContext(
+ *   page,
+ *   (Xrm, message: string) => {
+ *     Xrm.Page.ui.setFormNotification(message, 'INFO', 'test-notification');
+ *   },
+ *   'Record updated'
+ * );
  * ```
  */
-export async function executeInFormContext<T>(page: Page, fn: (Xrm: any) => T): Promise<T> {
-  return await page.evaluate((fnString) => {
-    const Xrm = (window as any).Xrm;
-    if (!Xrm) {
-      throw new Error('Xrm object not available');
-    }
+export async function executeInFormContext<T, A = undefined>(
+  page: Page,
+  fn: (Xrm: any, arg: A) => T,
+  arg?: A
+): Promise<T> {
+  return await page.evaluate(
+    ({ fnString, evalArg }) => {
+      const Xrm = (window as any).Xrm;
+      if (!Xrm) {
+        throw new Error('Xrm object not available');
+      }
 
-    // Reconstruct function from string and execute
-    const func = new Function('Xrm', `return (${fnString})(Xrm);`);
-    return func(Xrm);
-  }, fn.toString());
+      // Reconstruct function from string and execute. Only `Xrm` and `evalArg`
+      // (passed through page.evaluate's arg channel above, not string
+      // interpolation) are available inside — anything `fn` closed over in
+      // Node is gone.
+      const func = new Function('Xrm', 'evalArg', `return (${fnString})(Xrm, evalArg);`);
+      return func(Xrm, evalArg);
+    },
+    { fnString: fn.toString(), evalArg: arg }
+  );
 }
