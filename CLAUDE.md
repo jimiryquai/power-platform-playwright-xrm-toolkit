@@ -495,7 +495,35 @@ npx playwright show-report            # Open last HTML report
 
 ---
 
-## Testing Philosophy: What to Assert On
+## Testing Philosophy
+
+Two related but separate questions come up when writing a test here: what you run
+it against, and what you assert on once it's run.
+
+### Real integrations over fakes and mocks
+
+Prefer a real integration over a fake, and a fake over a mock, wherever there's a
+choice — see Google's [Increase test fidelity by avoiding
+mocks](https://testing.googleblog.com/2024/02/increase-test-fidelity-by-avoiding-mocks.html).
+A mock encodes an assumption about how a system behaves at the moment you wrote it;
+that assumption drifts as the real system changes, and a mock can keep passing long
+after the thing it stands in for has moved on. This is why `model-driven-crud.test.ts`
+and friends run against the actual provisioned environment rather than a stubbed one
+— and for Power Platform specifically there usually isn't a meaningful fake to reach
+for anyway (no local Dataverse, no fake Power Automate runtime), so the practical
+rule is simpler still: test against the real environment.
+
+This principle is about integration boundaries — the platform itself — not about
+unit-testing the toolkit's own logic. `src/**/*.test.ts` (e.g. `xrm/attribute.test.ts`,
+`xrm-helper.test.ts`) mock Playwright's `Page` to test a class's internal logic in
+isolation from a live tenant, which is a different kind of test than validating
+platform behaviour: `Page` is a stable, documented interface Playwright owns and
+versions deliberately, not an opaque managed runtime whose behaviour you'd be
+guessing at. Mocking `Page` for a unit test is fine; mocking Dataverse or a flow's
+response for what's meant to be an integration/e2e test is exactly what the article
+above warns against.
+
+### What to assert on
 
 Power Platform apps are low-code and managed — you almost never get to swap in a
 test double for the backend the way you could in hand-rolled code. That means most
